@@ -1,4 +1,4 @@
-"Read metadata and signature information from a local RPM file."""
+"""Read metadata and signature information from a local RPM file."""
 
 from __future__ import annotations
 
