@@ -1,4 +1,4 @@
-"""Read metadata and signature information from a local RPM file."""
+"Read metadata and signature information from a local RPM file."""
 
 from __future__ import annotations
 
@@ -43,7 +43,9 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
             encoding="utf-8", errors="replace", timeout=20,
         )
     except FileNotFoundError as error:
-        raise PackageInspectionError(f"Required system tool '{command[0]}' was not found.") from error
+        raise PackageInspectionError(
+            f"Required system tool '{command[0]}' was not found."
+        ) from error
     except subprocess.TimeoutExpired as error:
         raise PackageInspectionError("RPM inspection timed out.") from error
 
@@ -71,24 +73,29 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
     return PackageInfo(
         path=path, name=fields[0] or "Unknown", version=fields[1] or "Unknown",
         release=fields[2] or "Unknown", architecture=fields[3] or "Unknown",
-        summary=fields[4] or "No summary provided", description=fields[5] or "No description provided",
+        summary=fields[4] or "No summary provided",
+        description=fields[5] or "No description provided",
         vendor=fields[6] or "Unknown", packager=fields[7] or "Unknown",
         license=fields[8] or "Unknown", signature=inspect_signature(path),
     )
 
 
 def inspect_signature(package_path: Path) -> str:
-    """Return a cautious signature-check result; unknown trust is never called verified."""
+    """Report digest and signature results without overstating package trust."""
     tool = shutil.which("rpmkeys") or shutil.which("rpm")
     if tool is None:
         return "Could not verify: rpmkeys is unavailable"
+
     result = _run([tool, "--checksig", "--verbose", str(package_path)])
     output = (result.stdout + result.stderr).strip()
     lowered = output.lower()
+
     if result.returncode != 0:
         return f"Verification failed: {output or 'signature check returned an error'}"
-    if "not trusted" in lowered or "nokey" in lowered or "n / a" in lowered:
-        return f"Signature present, but trust could not be established: {output}"
-    if "digests signatures ok" in lowered or "digests ok" in lowered:
-        return f"Digest/signature check passed: {output}"
+    if "nokey" in lowered or "not trusted" in lowered:
+        return f"Signing key is not trusted or unavailable: {output}"
+    if "digests signatures ok" in lowered or "signatures ok" in lowered:
+        return f"Signature and digest checks passed: {output}"
+    if "digests ok" in lowered:
+        return f"Package digests passed; no trusted signature was confirmed: {output}"
     return f"Verification result requires review: {output or 'no details returned'}"
