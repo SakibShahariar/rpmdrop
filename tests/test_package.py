@@ -1,6 +1,6 @@
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
-import subprocess
 
 import pytest
 
@@ -24,11 +24,7 @@ def test_rejects_missing_file(tmp_path: Path):
 def test_parses_package_metadata(mock_run, _which, tmp_path: Path):
     rpm_file = tmp_path / "sample.rpm"
     rpm_file.write_bytes(b"test fixture")
-    metadata = "\x1f".join([
-        "sample", "1.2.3", "4.fc44", "x86_64", "A sample package",
-        "A longer description.\nWith multiple lines.", "Example Vendor",
-        "Example Packager", "MIT",
-    ])
+    metadata = "sample\\x1f1.2.3\\x1f4.fc44\\x1fx86_64\\x1fA sample package\\x1fA longer description.\\nWith multiple lines.\\x1fExample Vendor\\x1fExample Packager\\x1fMIT"
     mock_run.return_value = subprocess.CompletedProcess([], 0, metadata, "")
     with patch("rpmdrop.package.inspect_signature", return_value="Signature OK"):
         info = inspect_package(rpm_file)
