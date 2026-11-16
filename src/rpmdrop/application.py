@@ -408,7 +408,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.set_margin_end(12)
 
         intro = Gtk.Label(
-            label=f"Selected RPM: {preview.package_path.name}\\nReview the changes DNF5 resolved. Nothing has been installed."
+            label=f"Selected RPM: {preview.package_path.name}
+Review the changes DNF5 resolved. Nothing has been installed."
         )
         intro.set_xalign(0)
         intro.set_wrap(True)
