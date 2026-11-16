@@ -165,6 +165,7 @@ def execute_transaction(
     """Revalidate and execute the exact previewed DNF5 goal after user approval."""
     dbus = _dbus_module()
     receivers = []
+    completion_state: dict[str, bool | None] = {"success": None}
     try:
         bus, goal = _goal_for_session(dbus, preview.session_path)
         raw_items, result = goal.resolve(dbus.Dictionary({}, signature="sv"))
@@ -220,6 +221,7 @@ def execute_transaction(
                 ("transaction_action_start", "Starting action", False, False),
                 ("transaction_transaction_progress", "Downloading packages", True, False),
                 ("transaction_action_progress", "Installing", True, True),
+                ("transaction_before_begin", "Starting RPM transaction", False, False),
             )
             for signal_name, prefix, has_progress, has_subject in signal_handlers:
                 handler = report(prefix, has_progress, has_subject)
@@ -231,10 +233,29 @@ def execute_transaction(
                 )
                 receivers.append(handler)
 
+            def transaction_completed(_session, success):
+                completion_state["success"] = bool(success)
+                progress_callback(
+                    "RPM transaction completed." if success else "RPM transaction failed.",
+                    1.0 if success else None,
+                )
+
+            bus.add_signal_receiver(
+                transaction_completed,
+                signal_name="transaction_after_complete",
+                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                path=preview.session_path,
+            )
+            receivers.append(transaction_completed)
+
         goal.do_transaction(
             dbus.Dictionary({"interactive": True}, signature="sv"),
             timeout=3600,
         )
+        if completion_state["success"] is False:
+            raise TransactionExecutionError(
+                "The DNF5 daemon reported that the RPM transaction did not complete."
+            )
     except TransactionExecutionError:
         raise
     except Exception as error:
