@@ -199,6 +199,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         rpm_filter = Gtk.FileFilter()
         rpm_filter.set_name("RPM packages")
         rpm_filter.add_pattern("*.rpm")
+        rpm_filter.add_pattern("*.RPM")
         chooser.add_filter(rpm_filter)
         chooser.connect("response", self._on_file_selected)
         chooser.show()
