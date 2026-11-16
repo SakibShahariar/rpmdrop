@@ -2,32 +2,34 @@
 
 A lightweight native GNOME application for inspecting and installing local RPM packages.
 
-RpmDrop is designed as a focused local-package installer first, with an architecture that can grow into a broader RPM management application later.
+RpmDrop is a focused local-package installer for Fedora and other DNF5-based RPM systems. Its design prioritizes a clear review step before any system changes.
 
-## Goals
+## Current implementation
 
-- Open local `.rpm` files from the app or the file manager.
-- Inspect package metadata before installation.
-- Show signature-verification results clearly.
-- Resolve dependencies and present the package-manager transaction before making system changes.
-- Install through the system package manager with explicit user consent and privileged authorization.
-- Report progress and useful errors.
-- Keep a local history of actions initiated by RpmDrop.
+- Open local RPM files from the application or through the desktop's **Open With** integration.
+- Inspect package metadata, including version, architecture, vendor, packager, license, summary, and description.
+- Review the package's declared RPM requirements.
+- See signature and digest verification results without treating unknown signing keys as trusted.
+- Keep the GTK interface responsive while package inspection runs in the background.
+- Queue multiple files opened together and inspect them one at a time.
+
+The application does **not install packages yet**. Dependency resolution, transaction preview, privileged installation, progress/cancellation, and installation history remain planned work. The requirements shown during inspection are the RPM's declared requirements; they are not yet a DNF5-resolved transaction.
 
 ## Initial scope
 
-The first milestone targets Fedora and other DNF5-based RPM systems. The initial implementation will focus on package inspection and a safe install flow. Repository browsing, updates, and general package management are intentionally out of scope for the first milestone.
+The first milestone targets Fedora and other DNF5-based RPM systems. Repository browsing, updates, and general package management are intentionally out of scope.
 
 ## Technology
 
 - Python and PyGObject
 - GTK 4 and libadwaita
-- DNF5 for system package transactions
-- Polkit for privileged operations
+- RPM tooling for read-only package inspection
+- DNF5 for the planned transaction backend
+- Polkit or the supported DNF5 system service for the planned privilege boundary
 
 ## Development
 
-The application requires Python 3, GTK 4, libadwaita, and PyGObject.
+The application requires Python 3, GTK 4, libadwaita, PyGObject, and the RPM command-line tools.
 
 Run the application from a checkout with:
 
@@ -35,11 +37,11 @@ Run the application from a checkout with:
 python -m rpmdrop
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations and [docs/architecture.md](docs/architecture.md) for the initial design.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations and [docs/architecture.md](docs/architecture.md) for the security model and planned implementation.
 
 ## Status
 
-Early development. The repository is being bootstrapped; installation and transaction behavior must be validated on a real DNF5 system before being considered production-ready.
+Early development. Package inspection is implemented, but installation and transaction behavior must be validated on a real DNF5 system before RpmDrop can be considered a usable package installer.
 
 ## License
 
