@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rpmdrop.dnf5 import TransactionResolutionError, resolve_local_rpm
+from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    TransactionResolutionError,\n    cancel_transaction,\n    execute_transaction,\n    resolve_local_rpm,\n)
 
 
 class FakeDBus:
@@ -119,3 +119,45 @@ def test_preserves_solver_warnings(tmp_path: Path):
     with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
         preview = resolve_local_rpm(rpm_file)
     assert preview.warnings == ("A repository warning",)
+
+
+
+def test_executes_only_after_revalidating_preview(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        execute_transaction(preview)
+
+    assert preview.session_path == "/session/1"
+    assert fake.goal.resolve.call_count == 2
+    fake.goal.do_transaction.assert_called_once()
+
+
+def test_refuses_execution_when_transaction_changed(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    initial = [("package", "Install", "User", {}, make_package())]
+    changed_package = {**make_package(), "version": "9.9"}
+    fake = FakeDBus(items=initial)
+    fake.goal.resolve.side_effect = [
+        (initial, 0),
+        ([("package", "Install", "User", {}, changed_package)], 0),
+    ]
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        with pytest.raises(TransactionExecutionError, match="transaction changed"):
+            execute_transaction(preview)
+    fake.goal.do_transaction.assert_not_called()
+
+
+def test_cancel_requests_dnf5_goal_cancellation(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    fake.goal.cancel.return_value = (True, "")
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        result = cancel_transaction(preview)
+    assert result == (True, "")
