@@ -408,7 +408,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.set_margin_end(12)
 
         intro = Gtk.Label(
-            label="Review the changes DNF5 resolved. Nothing has been installed."
+            label=f"Selected RPM: {preview.package_path.name}\\nReview the changes DNF5 resolved. Nothing has been installed."
         )
         intro.set_xalign(0)
         intro.set_wrap(True)
@@ -430,12 +430,23 @@ class RpmDropWindow(Adw.ApplicationWindow):
         ]
 
         download_size = sum(item.download_size for item in preview.items)
-        install_size = sum(item.install_size for item in preview.items)
+        disk_delta = sum(
+            -item.install_size
+            if item.action.lower() in {"remove", "erase", "obsolete"}
+            else item.install_size
+            for item in preview.items
+        )
         lines.extend((
             "",
             f"Packages in transaction: {len(preview.items)}",
             f"Download size (reported): {download_size:,} bytes",
-            f"Package install sizes (sum): {install_size:,} bytes",
+            (
+                f"Estimated additional disk space: {disk_delta:,} bytes"
+                if disk_delta > 0
+                else f"Estimated disk space freed: {abs(disk_delta):,} bytes"
+                if disk_delta < 0
+                else "No additional installed size reported"
+            ),
         ))
 
         scroller = Gtk.ScrolledWindow()
@@ -450,11 +461,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.append(scroller)
 
         status = self.current_signature.status if self.current_signature else "unavailable"
-        blocked = status in {
+        blocked = not preview.items or status in {
             "digest-failed", "signature-failed", "verification-failed",
             "indeterminate", "unavailable",
         }
-        if self.current_signature is None:
+        if not preview.items:
+            trust_text = "DNF5 resolved no package changes. There is nothing to install."
+        elif self.current_signature is None:
             trust_text = "Package verification information is missing. Installation is blocked."
         else:
             trust_text = self.current_signature.explanation
@@ -470,7 +483,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         )
         content.append(trust_label)
 
-        if blocked:
+        if not preview.items:
+            acknowledgement_text = "No package changes were resolved."
+        elif blocked:
             acknowledgement_text = "Installation is blocked until package verification succeeds."
         elif removals and status in {"unsigned", "unknown-key"}:
             acknowledgement_text = (
