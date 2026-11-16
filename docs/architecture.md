@@ -2,7 +2,7 @@
 
 RpmDrop separates its GTK interface from system-tool adapters.
 
-- **Application/UI** (`rpmdrop.application`): file selection, package details, and user-facing state. It must not execute privileged commands.
+- **Application/UI** (`rpmdrop.application`): file selection, package details, transaction preview, and user-facing state. It must not execute privileged commands.\n- **Nautilus integration** (`data/nautilus-rpmdrop.py`): a file-manager menu provider that passes selected local RPM files to the unprivileged application through Gio.
 - **Package inspection** (`rpmdrop.package`): read-only metadata and signature inspection through RPM tooling. It never installs or modifies packages.
 - **Transaction backend** (`rpmdrop.dnf5`): DNF5 daemon D-Bus integration for local RPM goal creation and dependency resolution. It converts DNF5 transaction items into immutable preview records. It must never call `Goal.do_transaction()` during preview.\n- **Transaction execution** (planned): a separate, explicit user-confirmed operation using the same reviewed goal, with revalidation before execution.
 - **Privilege boundary** (planned): privileged work must be explicit and mediated by Polkit or the supported DNF5 system service. The GUI must never run as root.
@@ -22,6 +22,6 @@ RpmDrop separates its GTK interface from system-tool adapters.
 1. Local RPM inspection and signature reporting.
 2. DNF5 transaction preview and explicit install confirmation.
 3. Privileged transaction execution with progress and cancellation.
-4. Desktop integration, file association, and installation history.
+4. Desktop integration and file association (Nautilus context action implemented; installation history remains planned).
 
 The application currently resolves and previews transactions but does not execute them. The DNF5 daemon may request Polkit authorization when loading a local RPM; this authorizes the daemon operation, not package installation. The GUI remains unprivileged.
