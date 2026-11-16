@@ -198,8 +198,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._rows.append(row)
 
     def _on_history_clicked(self, _button: Gtk.Button) -> None:
-        dialog = Gtk.Dialog(title="Installation History", transient_for=self, modal=True)
+        dialog = Gtk.Dialog(title="RpmDrop History", transient_for=self, modal=True)
         dialog.set_default_size(600, 440)
+        dialog.add_button("Clear History", Gtk.ResponseType.APPLY)
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         content = dialog.get_content_area()
         content.set_spacing(10)
@@ -214,7 +215,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             records = ()
             message = f"Could not read local history: {error}"
         else:
-            message = "No package operations have been recorded yet."
+            message = "No RpmDrop-initiated package operations have been recorded yet."
 
         if not records:
             empty = Gtk.Label(label=message)
@@ -241,8 +242,19 @@ class RpmDropWindow(Adw.ApplicationWindow):
             scroller.set_child(rows)
             content.append(scroller)
 
-        dialog.connect("response", lambda window, _response: window.destroy())
+        dialog.connect("response", self._on_history_response)
         dialog.present()
+
+    def _on_history_response(self, dialog: Gtk.Dialog, response: int) -> None:
+        if response == Gtk.ResponseType.APPLY:
+            try:
+                self.history_store.clear()
+            except (OSError, sqlite3.Error) as error:
+                self.status.set_text(f"Could not clear history: {error}")
+            dialog.destroy()
+            self._on_history_clicked(self.history_button)
+            return
+        dialog.destroy()
 
     def _on_open_clicked(self, _button: Gtk.Button) -> None:
         chooser = Gtk.FileChooserNative.new(
@@ -617,6 +629,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
             operation_status = (
                 "success" if error is None
                 else "cancelled" if self._cancel_confirmed
+                else "authorization-denied"
+                if any(
+                    marker in error.lower()
+                    for marker in ("notauthorized", "not authorized", "authorization denied")
+                )
                 else "failed"
             )
             try:
