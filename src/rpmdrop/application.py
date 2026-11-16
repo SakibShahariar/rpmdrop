@@ -35,6 +35,12 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._pending_paths: list[str] = []
         self._inspection_active = False
         self.current_package_path: Path | None = None
+        self.current_signature: SignatureInfo | None = None
+        self._active_preview: TransactionPreview | None = None
+        self._install_dialog: Gtk.Dialog | None = None
+        self._install_status: Gtk.Label | None = None
+        self._install_spinner: Gtk.Spinner | None = None
+        self._install_cancel_button: Gtk.Widget | None = None
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(outer)
@@ -169,6 +175,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.description.set_visible(False)
         self.preview_button.set_visible(False)
         self.current_package_path = None
+        self.current_signature = None
 
     def _add_row(self, title: str, value: str) -> None:
         row = Adw.ActionRow(title=title, subtitle=value)
@@ -563,6 +570,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.description.set_visible(True)
         self.drop_area.set_visible(False)
         self.current_package_path = info.path
+        self.current_signature = info.signature
         self.preview_button.set_visible(True)
 
 
