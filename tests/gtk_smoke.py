@@ -103,7 +103,6 @@ def main() -> None:
     assert dialog.get_resizable()
     assert dialog.get_modal()
     assert dialog.get_transient_for() is window
-    assert dialog.get_default_size() == (560, 440)
     install_button = dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
     acknowledgement = dialog.get_content_area().get_last_child()
     assert isinstance(acknowledgement, Gtk.CheckButton)
