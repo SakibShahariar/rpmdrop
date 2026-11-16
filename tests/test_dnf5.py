@@ -3,7 +3,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    TransactionResolutionError,\n    cancel_transaction,\n    execute_transaction,\n    resolve_local_rpm,\n)
+from rpmdrop.dnf5 import (
+    TransactionExecutionError,
+    TransactionResolutionError,
+    cancel_transaction,
+    execute_transaction,
+    resolve_local_rpm,
+)
 
 
 class FakeDBus:
