@@ -184,7 +184,7 @@ def test_reports_dnf5_progress_fraction(tmp_path: Path):
         )
 
     handlers = [
-        call.args[0] for call in fake.bus.add_signal_receiver.call_args_list
+        entry.args[0] for entry in fake.bus.add_signal_receiver.call_args_list
     ]
     handlers[0]("/session/1", "example-2.0-3.fc44.x86_64", 2, 4)
     assert progress == [("Preparing example-2.0-3.fc44.x86_64 (2/4)", 0.5)]
