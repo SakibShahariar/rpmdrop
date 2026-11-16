@@ -40,6 +40,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_dialog: Gtk.Dialog | None = None
         self._install_status: Gtk.Label | None = None
         self._install_spinner: Gtk.Spinner | None = None
+        self._install_progress: Gtk.ProgressBar | None = None
         self._install_cancel_button: Gtk.Widget | None = None
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -439,6 +440,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_status.set_wrap(True)
         self._install_status.set_xalign(0)
         content.append(self._install_status)
+        self._install_progress = Gtk.ProgressBar()
+        self._install_progress.set_show_text(True)
+        content.append(self._install_progress)
         dialog.connect("response", self._on_install_cancel)
         self._install_dialog = dialog
         self.open_button.set_sensitive(False)
@@ -457,16 +461,19 @@ class RpmDropWindow(Adw.ApplicationWindow):
             execute_transaction(
                 preview,
                 progress_callback=lambda message: GLib.idle_add(
-                    self._set_install_status, message
+                    self._set_install_status, message, fraction
                 ),
             )
         except TransactionExecutionError as execution_error:
             error = str(execution_error)
         GLib.idle_add(self._installation_finished, error)
 
-    def _set_install_status(self, message: str) -> bool:
+    def _set_install_status(self, message: str, fraction: float | None = None) -> bool:
         if self._install_status is not None:
             self._install_status.set_text(message)
+        if self._install_progress is not None and fraction is not None:
+            self._install_progress.set_fraction(fraction)
+            self._install_progress.set_text(f"{fraction:.0%}")
         return GLib.SOURCE_REMOVE
 
     def _on_install_cancel(self, _dialog: Gtk.Dialog, response: int) -> None:
@@ -502,6 +509,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_dialog = None
         self._install_status = None
         self._install_spinner = None
+        self._install_progress = None
         self._install_cancel_button = None
         self._active_preview = None
         self.open_button.set_sensitive(True)
