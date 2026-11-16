@@ -131,6 +131,10 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
             warnings = tuple(
                 str(problem) for problem in goal.get_transaction_problems_string()
             )
+        elif int(result) != 0:
+            raise TransactionResolutionError(
+                f"DNF5 returned an unknown transaction resolution status: {result}"
+            )
 
         items = _items_from_raw(raw_items)
         if not items and not warnings:
