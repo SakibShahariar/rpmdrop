@@ -126,14 +126,17 @@ class RpmDropWindow(Adw.ApplicationWindow):
         drop_icon.set_pixel_size(40)
         drop_icon.add_css_class("dim-label")
         self.drop_area.append(drop_icon)
-        drop_label = Gtk.Label(label="Open an RPM package")
+        drop_label = Gtk.Label(label="Drop RPM files here")
         drop_label.add_css_class("title-3")
         self.drop_area.append(drop_label)
-        drop_hint = Gtk.Label(label="Use Open RPM above or open an .rpm file from Files.")
+        drop_hint = Gtk.Label(label="Or click Open RPM to choose files.")
         drop_hint.add_css_class("dim-label")
         drop_hint.set_wrap(True)
         drop_hint.set_justify(Gtk.Justification.CENTER)
         self.drop_area.append(drop_hint)
+        self.drop_target = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
+        self.drop_target.connect("drop", self._on_files_dropped)
+        self.drop_area.add_controller(self.drop_target)
 
         self.details = Adw.PreferencesGroup(title="Package details")
         self.details.set_visible(False)
@@ -263,6 +266,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
             self._on_history_clicked(self.history_button)
             return
         dialog.destroy()
+
+    def _on_files_dropped(self, _target, value: Gdk.FileList, _x: float, _y: float) -> bool:
+        paths = [file.get_path() for file in value.get_files() if file.get_path()]
+        if not paths:
+            return False
+        self.inspect_paths(paths)
+        return True
 
     def _on_open_clicked(self, _button: Gtk.Button) -> None:
         chooser = Gtk.FileChooserNative.new(
