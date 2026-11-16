@@ -378,7 +378,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
             trust_text = "Package verification information is missing. Installation is blocked."
         else:
             trust_text = self.current_signature.explanation
-        if removals:\n            trust_text = (\n                f"This transaction will remove {len(removals)} installed package(s). " + trust_text\n            )\n        trust_label = Gtk.Label(label=trust_text)
+        if removals:
+            trust_text = (
+                f"This transaction will remove {len(removals)} installed package(s). " + trust_text
+            )
+        trust_label = Gtk.Label(label=trust_text)
         trust_label.set_xalign(0)
         trust_label.set_wrap(True)
         trust_label.add_css_class("warning" if status in {"unsigned", "unknown-key"} else "dim-label")
@@ -387,9 +391,14 @@ class RpmDropWindow(Adw.ApplicationWindow):
         if blocked:
             acknowledgement_text = "Installation is blocked until package verification succeeds."
         elif removals:
-            acknowledgement_text = (\n                "I reviewed the transaction, understand that packages will be removed, " \n                "and want to continue."\n            )
+            acknowledgement_text = (
+                "I reviewed the transaction, understand that packages will be removed, "
+                "and want to continue."
+            )
         elif status in {"unsigned", "unknown-key"}:
-            acknowledgement_text = (\n                "I understand the package signature warning and still want to install."\n            )
+            acknowledgement_text = (
+                "I understand the package signature warning and still want to install."
+            )
         else:
             acknowledgement_text = "I reviewed this transaction and want to install these packages."
         acknowledgement = Gtk.CheckButton(label=acknowledgement_text)
