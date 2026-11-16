@@ -41,6 +41,36 @@ jobs:
           python3 -m pytest -q
           ruff check .
 
+      - name: Build a local DNF5 resolver fixture
+        run: |
+          cat > /tmp/rpmdrop-dbus-smoke.spec <<'EOF'
+          Name: rpmdrop-dbus-smoke
+          Version: 1.0
+          Release: 1%{?dist}
+          Summary: Minimal RPM used for RpmDrop DNF5 integration testing
+          License: MIT
+          BuildArch: noarch
+          %description
+          Minimal package used only to test safe DNF5 transaction resolution.
+          %prep
+          %build
+          %install
+          mkdir -p %{buildroot}%{_datadir}/doc/rpmdrop-dbus-smoke
+          echo smoke > %{buildroot}%{_datadir}/doc/rpmdrop-dbus-smoke/marker
+          %files
+          %{_datadir}/doc/rpmdrop-dbus-smoke/marker
+          EOF
+          rpmbuild -bb /tmp/rpmdrop-dbus-smoke.spec --define "_topdir $HOME/rpmbuild"
+
+      - name: Resolve a local RPM through the live DNF5 daemon
+        run: |
+          mkdir -p /run/dbus
+          if [ ! -S /run/dbus/system_bus_socket ]; then
+            dbus-daemon --system --fork --nopidfile
+          fi
+          python3 tests/dnf5_integration.py \
+            "$HOME/rpmbuild/RPMS/noarch/rpmdrop-dbus-smoke-1.0-1.fc44.noarch.rpm"
+
       - name: Smoke-test GTK application startup
         run: |
           set +e
