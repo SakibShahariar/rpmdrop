@@ -90,9 +90,11 @@ def test_reports_missing_dnf5_daemon(tmp_path: Path):
     rpm_file.write_bytes(b"rpm")
     fake = FakeDBus()
     fake.bus.get_object.side_effect = RuntimeError("ServiceUnknown")
-    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
-        with pytest.raises(TransactionResolutionError, match="dnf5daemon-server"):
-            resolve_local_rpm(rpm_file)
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionResolutionError, match="dnf5daemon-server"),
+    ):
+        resolve_local_rpm(rpm_file)
 
 
 def test_reports_solver_problems(tmp_path: Path):
