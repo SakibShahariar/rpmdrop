@@ -68,8 +68,9 @@ jobs:
           if [ ! -S /run/dbus/system_bus_socket ]; then
             dbus-daemon --system --fork --nopidfile
           fi
-          python3 tests/dnf5_integration.py \
-            "$HOME/rpmbuild/RPMS/noarch/rpmdrop-dbus-smoke-1.0-1.fc44.noarch.rpm"
+          smoke_rpm=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-dbus-smoke-1.0-1*.noarch.rpm" -print -quit)
+          test -n "$smoke_rpm"
+          python3 tests/dnf5_integration.py "$smoke_rpm"
 
       - name: Smoke-test GTK application startup
         run: |
