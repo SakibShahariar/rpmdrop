@@ -338,45 +338,61 @@ def close_session(preview: TransactionPreview) -> bool:
 
 def classify_transaction_error(error: str) -> tuple[str, str, str]:
     """Return a stable category, user-facing title, and explanation."""
-    message = error.strip()
-    lowered = message.lower()
-
+    lowered = error.strip().lower()
     categories = (
         (
             "authorization",
             "Authorization denied",
-            "RpmDrop could not obtain permission to apply this transaction. "
-            "Approve the DNF5 authentication prompt and try again.",
-            ("notauthorized", "not authorized", "authorization denied", "access denied", "polkit"),
+            (
+                "RpmDrop could not obtain permission to apply this transaction. "
+                "Approve the DNF5 authentication prompt and try again."
+            ),
+            (
+                "notauthorized",
+                "not authorized",
+                "authorization denied",
+                "access denied",
+                "polkit",
+            ),
         ),
         (
             "disk-space",
             "Not enough disk space",
-            "The transaction could not continue because the system reported insufficient disk space.",
+            "The transaction could not continue because the system reported "
+            "insufficient disk space.",
             ("no space left", "not enough space", "insufficient space", "disk space"),
         ),
         (
             "network",
             "Network error",
-            "DNF5 could not complete a required network operation. Check your connection and try again.",
-            ("could not resolve host", "network is unreachable", "connection timed out", "failed to download"),
+            "DNF5 could not complete a required network operation. "
+            "Check your connection and try again.",
+            (
+                "could not resolve host",
+                "network is unreachable",
+                "connection timed out",
+                "failed to download",
+            ),
         ),
         (
             "repository",
             "Repository error",
-            "DNF5 could not use one of the configured software repositories. Check repository availability and configuration.",
+            "DNF5 could not use one of the configured software repositories. "
+            "Check repository availability and configuration.",
             ("repository", "repo metadata", "no enabled repos", "repomd.xml"),
         ),
         (
             "package-conflict",
             "Package conflict",
-            "The requested transaction conflicts with packages or files already present on the system.",
+            "The requested transaction conflicts with packages or files "
+            "already present on the system.",
             ("file conflicts", "package conflict", "conflicting requests", "conflict"),
         ),
         (
             "dependency",
             "Dependency error",
-            "DNF5 could not find a consistent set of package dependencies for this transaction.",
+            "DNF5 could not find a consistent set of package dependencies "
+            "for this transaction.",
             ("nothing provides", "dependency", "requires ", "cannot install"),
         ),
     )
@@ -386,5 +402,6 @@ def classify_transaction_error(error: str) -> tuple[str, str, str]:
     return (
         "generic",
         "Installation failed",
-        "DNF5 could not complete the package transaction. Review the diagnostic details below.",
+        "DNF5 could not complete the package transaction. "
+        "Review the diagnostic details below.",
     )
