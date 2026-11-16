@@ -179,17 +179,26 @@ def execute_transaction(
         if progress_callback is not None:
             def report(label: str):
                 def handler(_session, *values):
-                    progress_callback(label.format(*values))
+                    fraction = None
+                    if len(values) >= 2:
+                        try:
+                            total = float(values[-1])
+                            if total > 0:
+                                fraction = max(0.0, min(1.0, float(values[-2]) / total))
+                        except (TypeError, ValueError):
+                            fraction = None
+                    progress_callback(label.format(*values), fraction)
                 return handler
 
             signal_handlers = (
                 ("transaction_elem_progress", "Preparing {} ({}/{})"),
-                ("transaction_action_start", "{}: {}"),
+                ("transaction_action_start", "{}: {}", False),
                 ("transaction_transaction_progress", "Downloading packages ({}/{})"),
                 ("transaction_action_progress", "Installing {} ({}/{})"),
             )
-            for signal_name, message in signal_handlers:
-                handler = report(message)
+            for signal in signal_handlers:
+                signal_name, message, *progress_flag = signal
+                handler = report(message) if not progress_flag else report(message)
                 bus.add_signal_receiver(
                     handler,
                     signal_name=signal_name,
