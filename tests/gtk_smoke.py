@@ -1,12 +1,13 @@
 """Headless GTK smoke test for package details and transaction confirmation."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from rpmdrop.application import RpmDropApplication, RpmDropWindow
 from rpmdrop.dnf5 import TransactionItem, TransactionPreview
@@ -40,6 +41,18 @@ def main() -> None:
     )
     window._display_package(info)
     print("gtk-smoke: package details constructed", flush=True)
+
+    class FakeFileList:
+        def get_files(self):
+            return [
+                Gio.File.new_for_path("/tmp/first package.rpm"),
+                Gio.File.new_for_uri("sftp://example.invalid/remote.rpm"),
+            ]
+
+    with patch.object(window, "inspect_paths") as inspect_paths:
+        assert window._on_files_dropped(None, FakeFileList(), 0.0, 0.0)
+        inspect_paths.assert_called_once_with(["/tmp/first package.rpm"])
+    assert isinstance(window.drop_target, Gtk.DropTarget)
     assert window.requirements_row is not None
     assert window.provides_row is not None
     assert isinstance(window.requirements_row, Adw.ExpanderRow)
