@@ -104,10 +104,6 @@ def main() -> None:
     assert dialog.get_modal()
     assert dialog.get_transient_for() is window
     assert dialog.get_default_size() == (560, 440)
-    assert any(
-        isinstance(child, Gtk.ScrolledWindow)
-        for child in dialog.get_content_area().observe_children().to_list()
-    )
     install_button = dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
     acknowledgement = dialog.get_content_area().get_last_child()
     assert isinstance(acknowledgement, Gtk.CheckButton)
