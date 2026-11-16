@@ -44,7 +44,7 @@ jobs:
       - name: Smoke-test GTK application startup
         run: |
           set +e
-          timeout 10s dbus-run-session -- xvfb-run -a python3 -m rpmdrop
+          PYTHONPATH=src timeout 10s dbus-run-session -- xvfb-run -a python3 -m rpmdrop
           status=$?
           set -e
           test "$status" -eq 124
