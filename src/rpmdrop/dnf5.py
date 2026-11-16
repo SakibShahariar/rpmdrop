@@ -293,7 +293,11 @@ def execute_transaction(
             dbus.Dictionary({"interactive": True}, signature="sv"),
             timeout=3600,
         )
-        if completion_state["success"] is not True:
+        if completion_state["success"] is False:
+            raise TransactionExecutionError(
+                "The DNF5 daemon reported that the RPM transaction did not complete."
+            )
+        if completion_state["success"] is None:
             raise TransactionExecutionError(
                 "DNF5 returned without confirming successful RPM transaction completion."
             )
