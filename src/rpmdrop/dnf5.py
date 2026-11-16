@@ -327,7 +327,7 @@ def close_session(preview: TransactionPreview) -> bool:
             bus.get_object(bus_name, object_path),
             dbus_interface=f"{bus_name}.SessionManager",
         )
-        return bool(manager.close_session(preview.session_path))
+        return bool(manager.close_session(dbus.ObjectPath(preview.session_path)))
     except Exception as error:
         raise TransactionExecutionError(
             f"Could not close the DNF5 session: {error}"
