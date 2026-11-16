@@ -82,7 +82,7 @@ jobs:
           fi
           smoke_rpm=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-dbus-smoke-1.0-1*.noarch.rpm" -print -quit)
           test -n "$smoke_rpm"
-          python3 tests/dnf5_integration.py "$smoke_rpm"
+          PYTHONPATH=src python3 tests/dnf5_integration.py "$smoke_rpm"
           kill "$daemon_pid" || true
 
       - name: Smoke-test GTK application startup
