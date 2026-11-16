@@ -90,6 +90,7 @@ def test_returns_structured_transaction_without_executing(tmp_path: Path):
     assert preview.items[1].reason == "Dependency"
     assert preview.items[0].download_size == 1024
     fake.goal.resolve.assert_called_once()
+    assert fake.goal.resolve.call_args.args[0]["allow_erasing"] is True
     assert not hasattr(fake.goal, "do_transaction") or not fake.goal.do_transaction.called
 
 
@@ -140,6 +141,10 @@ def test_executes_only_after_revalidating_preview(tmp_path: Path):
 
     assert preview.session_path == "/session/1"
     assert fake.goal.resolve.call_count == 2
+    assert all(
+        call.args[0]["allow_erasing"] is True
+        for call in fake.goal.resolve.call_args_list
+    )
     fake.goal.do_transaction.assert_called_once()
 
 
