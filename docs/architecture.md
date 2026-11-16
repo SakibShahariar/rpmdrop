@@ -26,6 +26,6 @@ RpmDrop separates its GTK interface from system-tool adapters.
 2. DNF5 transaction resolution and structured preview — implemented; requires real-system validation.
 3. Explicitly confirmed installation, transaction revalidation, progress, and download-phase cancellation — implemented; requires real-system validation.
 4. Desktop file association and Nautilus context action — implemented; Fedora RPM build/install/removal is covered by CI.
-5. Installation history and richer integration tests — planned.
+5. Private local operation history (last 100 results) — implemented; richer real-system transaction tests remain planned.
 
 The application and RPM package build in Fedora 44 CI. Automated tests cover package metadata, signature classifications, DNF5 goal resolution/revalidation, transaction execution boundaries, progress conversion, cancellation requests, and package installation/removal. Fedora CI also starts the real DNF5 daemon and resolves a minimal local RPM without executing it. Manual validation of a real package installation with the desktop Polkit authentication agent is still required before calling the installer production-ready.
