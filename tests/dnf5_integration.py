@@ -30,10 +30,7 @@ def main() -> None:
         )
 
     try:
-        execute_transaction(
-            preview,
-            progress_callback=lambda message, _fraction: print(message, flush=True),
-        )
+        execute_transaction(preview)
     finally:
         close_session(preview)
 
