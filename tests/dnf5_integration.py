@@ -10,7 +10,7 @@ from pathlib import Path
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
-from rpmdrop.dnf5 import close_session, execute_transaction, resolve_local_rpm
+from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    close_session,\n    execute_transaction,\n    resolve_local_rpm,\n)
 
 
 def main() -> None:
@@ -44,7 +44,7 @@ def main() -> None:
                 preview,
                 progress_callback=lambda message, _fraction: progress_messages.append(message),
             )
-        except Exception as error:
+        except TransactionExecutionError as error:
             errors.append(error)
         finally:
             try:
