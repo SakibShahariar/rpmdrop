@@ -163,6 +163,8 @@ def execute_transaction(
     progress_callback: Any | None = None,
 ) -> None:
     """Revalidate and execute the exact previewed DNF5 goal after user approval."""
+    if not preview.items:
+        raise TransactionExecutionError("The preview contains no package changes to install.")
     dbus = _dbus_module()
     receivers = []
     completion_state: dict[str, bool | None] = {"success": None}
