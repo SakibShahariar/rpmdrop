@@ -10,7 +10,12 @@ from pathlib import Path
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
-from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    close_session,\n    execute_transaction,\n    resolve_local_rpm,\n)
+from rpmdrop.dnf5 import (
+    TransactionExecutionError,
+    close_session,
+    execute_transaction,
+    resolve_local_rpm,
+)
 
 
 def main() -> None:
