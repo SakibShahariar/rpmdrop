@@ -41,10 +41,10 @@ installation.
 %pyproject_save_files rpmdrop
 
 %check
-desktop-file-validate %{buildroot}%{_bindir}/rpmdrop
-%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 
 %files -f %{pyproject_files}
+%{_bindir}/rpmdrop
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
