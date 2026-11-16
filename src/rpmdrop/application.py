@@ -41,6 +41,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.current_signature: SignatureInfo | None = None
         self._active_preview: TransactionPreview | None = None
         self._install_dialog: Gtk.Dialog | None = None
+        self._preview_dialog: Gtk.Dialog | None = None
         self._install_status: Gtk.Label | None = None
         self._install_spinner: Gtk.Spinner | None = None
         self._install_progress: Gtk.ProgressBar | None = None
@@ -497,6 +498,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 not blocked and check.get_active()
             ),
         )
+        self._preview_dialog = dialog
         dialog.connect(
             "response",
             self._on_preview_response,
@@ -514,6 +516,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         acknowledgement: Gtk.CheckButton,
         blocked: bool,
     ) -> None:
+        self._preview_dialog = None
         if response == Gtk.ResponseType.ACCEPT and not blocked and acknowledgement.get_active():
             dialog.destroy()
             self._start_installation(preview)
