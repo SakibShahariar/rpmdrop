@@ -100,6 +100,14 @@ def main() -> None:
         pass
     dialog = window._preview_dialog
     assert dialog is not None
+    assert dialog.get_resizable()
+    assert dialog.get_modal()
+    assert dialog.get_transient_for() is window
+    assert dialog.get_default_size() == (560, 440)
+    assert any(
+        isinstance(child, Gtk.ScrolledWindow)
+        for child in dialog.get_content_area().observe_children().to_list()
+    )
     install_button = dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
     acknowledgement = dialog.get_content_area().get_last_child()
     assert isinstance(acknowledgement, Gtk.CheckButton)
@@ -119,6 +127,9 @@ def main() -> None:
         pass
     blocked_dialog = window._preview_dialog
     assert blocked_dialog is not None
+    assert blocked_dialog.get_resizable()
+    assert blocked_dialog.get_modal()
+    assert blocked_dialog.get_transient_for() is window
     blocked_install = blocked_dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
     blocked_acknowledgement = blocked_dialog.get_content_area().get_last_child()
     assert not blocked_install.get_sensitive()
