@@ -253,11 +253,12 @@ def test_reports_download_byte_progress(tmp_path: Path):
             preview,
             progress_callback=lambda message, fraction: progress.append((message, fraction)),
         )
-    download_handler = next(
-        entry.args[0]
-        for entry in fake.bus.add_signal_receiver.call_args_list
+    download_receiver = next(
+        entry for entry in fake.bus.add_signal_receiver.call_args_list
         if entry.kwargs.get("signal_name") == "download_progress"
     )
+    assert download_receiver.kwargs["dbus_interface"] == "org.rpm.dnf.v0.Base"
+    download_handler = download_receiver.args[0]
     download_handler("/session/1", "example.rpm", 100, 50)
     assert progress == [("Downloading example.rpm (50/100 bytes)", 0.5)]
 
