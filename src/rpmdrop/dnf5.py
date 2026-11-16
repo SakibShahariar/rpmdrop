@@ -116,7 +116,7 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
         # authorization. This queues a goal only; it does not execute it.
         rpm.install(
             [str(path)],
-            dbus.Dictionary({"interactive": True}, signature="sv"),
+            dbus.Dictionary({}, signature="sv"),
         )
         raw_items, result = goal.resolve(
             dbus.Dictionary({"allow_erasing": True}, signature="sv")
