@@ -40,7 +40,7 @@ Run the application from a checkout with:
 python -m rpmdrop
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations, [docs/architecture.md](docs/architecture.md) for the security model, and [packaging/rpmdrop.spec](packaging/rpmdrop.spec) for the initial Fedora RPM packaging. A Fedora 44 CI job builds the RPM from the current source tree.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations, [docs/architecture.md](docs/architecture.md) for the security model, [docs/fedora-validation.md](docs/fedora-validation.md) for live-system validation, and [packaging/rpmdrop.spec](packaging/rpmdrop.spec) for the initial Fedora RPM packaging. A Fedora 44 CI job builds the RPM from the current source tree.
 
 ## Status
 
