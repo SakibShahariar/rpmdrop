@@ -9,7 +9,7 @@ Before calling RpmDrop ready for normal use, validate these paths on a disposabl
 Install the runtime integration packages:
 
 ```sh
-sudo dnf install rpmdrop dnf5daemon-server python3-dbus nautilus-python
+sudo dnf install ./rpmdrop-0.1.0-1.fc44.noarch.rpm dnf5daemon-server python3-dbus nautilus-python
 ```
 
 Confirm that the DNF5 daemon service is available:
