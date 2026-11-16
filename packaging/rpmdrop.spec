@@ -44,7 +44,6 @@ installation.
 desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 
 %files -f %{pyproject_files}
-%license LICENSE
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
