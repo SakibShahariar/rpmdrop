@@ -7,6 +7,7 @@ from rpmdrop.dnf5 import (
     TransactionExecutionError,
     TransactionResolutionError,
     cancel_transaction,
+    close_session,
     execute_transaction,
     resolve_local_rpm,
 )
@@ -225,3 +226,35 @@ def test_reports_failed_rpm_transaction_completion(tmp_path: Path):
     ):
         preview = resolve_local_rpm(rpm_file)
         execute_transaction(preview, progress_callback=lambda _message, _fraction: None)
+
+
+
+def test_closes_dnf5_session(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    fake.session_manager.close_session.return_value = True
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        assert close_session(preview) is True
+    fake.session_manager.close_session.assert_called_once_with("/session/1")
+
+
+def test_reports_download_byte_progress(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    progress = []
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        execute_transaction(
+            preview,
+            progress_callback=lambda message, fraction: progress.append((message, fraction)),
+        )
+    download_handler = next(
+        entry.args[0]
+        for entry in fake.bus.add_signal_receiver.call_args_list
+        if entry.kwargs.get("signal_name") == "download_progress"
+    )
+    download_handler("/session/1", "example.rpm", 100, 50)
+    assert progress == [("Downloading example.rpm (50/100 bytes)", 0.5)]
