@@ -5,6 +5,7 @@ import pytest
 
 from rpmdrop.dnf5 import (
     TransactionExecutionError,
+    TransactionPreview,
     TransactionResolutionError,
     cancel_transaction,
     close_session,
