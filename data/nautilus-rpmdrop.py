@@ -32,6 +32,6 @@ class RpmDropMenuProvider(GObject.GObject, Nautilus.MenuProvider):
         app_info = Gio.AppInfo.create_from_commandline(
             "rpmdrop",
             "RpmDrop",
-            Gio.AppInfoCreateFlags.SUPPORTS_FILES,
+            Gio.AppInfoCreateFlags.NONE,
         )
         app_info.launch(rpm_files, None)
