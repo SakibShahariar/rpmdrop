@@ -14,6 +14,7 @@ from rpmdrop.package import PackageInfo, SignatureInfo
 
 
 def main() -> None:
+    print("gtk-smoke: starting", flush=True)
     Adw.init()
     application = RpmDropApplication()
     application.register(None)
@@ -38,6 +39,7 @@ def main() -> None:
         provides_error=None,
     )
     window._display_package(info)
+    print("gtk-smoke: package details constructed", flush=True)
     assert window.requirements_row is not None
     assert window.provides_row is not None
     assert isinstance(window.requirements_row, Adw.ExpanderRow)
@@ -72,6 +74,7 @@ def main() -> None:
     )
     window.present()
     window._show_transaction_preview(preview)
+    print("gtk-smoke: transaction preview constructed", flush=True)
     while GLib.MainContext.default().iteration(False):
         pass
     dialog = window._preview_dialog
@@ -90,6 +93,7 @@ def main() -> None:
         "digest-failed", "Digest failed", "Do not install.", ""
     )
     window._show_transaction_preview(preview)
+    print("gtk-smoke: blocked preview constructed", flush=True)
     while GLib.MainContext.default().iteration(False):
         pass
     blocked_dialog = window._preview_dialog
@@ -105,4 +109,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import faulthandler
+
+    faulthandler.enable()
+    try:
+        main()
+    except BaseException as error:
+        print(f"gtk-smoke failed: {error!r}", flush=True)
+        raise
