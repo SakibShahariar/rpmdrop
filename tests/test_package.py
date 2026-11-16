@@ -4,7 +4,12 @@ from unittest.mock import patch
 
 import pytest
 
-from rpmdrop.package import (\n    PackageInspectionError,\n    SignatureInfo,\n    inspect_package,\n    inspect_signature,\n)
+from rpmdrop.package import (
+    PackageInspectionError,
+    SignatureInfo,
+    inspect_package,
+    inspect_signature,
+)
 
 
 def test_rejects_non_rpm_extension(tmp_path: Path):
