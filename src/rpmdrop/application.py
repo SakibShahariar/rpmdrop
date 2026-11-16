@@ -17,6 +17,7 @@ from rpmdrop.dnf5 import (
     TransactionPreview,
     TransactionResolutionError,
     cancel_transaction,
+    close_session,
     execute_transaction,
     resolve_local_rpm,
 )
@@ -445,6 +446,17 @@ class RpmDropWindow(Adw.ApplicationWindow):
             self._start_installation(preview)
             return
         dialog.destroy()
+        threading.Thread(
+            target=self._close_preview_session_in_background,
+            args=(preview,),
+            daemon=True,
+        ).start()
+
+    def _close_preview_session_in_background(self, preview: TransactionPreview) -> None:
+        try:
+            close_session(preview)
+        except TransactionExecutionError:
+            return
 
     def _start_installation(self, preview: TransactionPreview) -> None:
         self._active_preview = preview
@@ -491,6 +503,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
             )
         except TransactionExecutionError as execution_error:
             error = str(execution_error)
+        finally:
+            try:
+                close_session(preview)
+            except TransactionExecutionError:
+                pass
         GLib.idle_add(self._installation_finished, error)
 
     def _set_install_status(self, message: str, fraction: float | None = None) -> bool:
