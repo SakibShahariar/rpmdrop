@@ -45,6 +45,7 @@ jobs:
         run: |
           set +e
           PYTHONPATH=src timeout 10s dbus-run-session -- xvfb-run -a python3 -m rpmdrop
+          PYTHONPATH=src dbus-run-session -- xvfb-run -a python3 tests/gtk_smoke.py
           status=$?
           set -e
           test "$status" -eq 124
