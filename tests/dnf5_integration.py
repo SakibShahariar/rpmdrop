@@ -66,8 +66,12 @@ def main() -> None:
         raise SystemExit("The DNF5 transaction worker did not finish.")
     if errors:
         raise SystemExit(f"The DNF5 transaction failed: {errors[0]}")
-    if not progress_messages:
-        raise SystemExit("The DNF5 daemon did not emit any transaction progress signals.")
+    if not any(
+        marker in message
+        for message in progress_messages
+        for marker in ("Starting RPM transaction", "Starting package action", "Processing")
+    ):
+        raise SystemExit("The DNF5 daemon did not emit transaction progress signals.")
 
     installed_after = subprocess.run(
         ["rpm", "-q", "rpmdrop-dbus-smoke"], check=False, capture_output=True
