@@ -49,5 +49,9 @@ jobs:
           rpm -q rpmdrop
           command -v rpmdrop
           test -f /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
+          test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
           rpm -e rpmdrop
           ! rpm -q rpmdrop
+          test ! -e /usr/bin/rpmdrop
+          test ! -e /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
+          test ! -e /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
