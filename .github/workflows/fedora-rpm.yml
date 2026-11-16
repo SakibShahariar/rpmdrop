@@ -17,7 +17,8 @@ jobs:
       - name: Install RPM build dependencies
         run: |
           dnf install -y git rpm-build python3-devel python3-setuptools \
-            pyproject-rpm-macros desktop-file-utils python3-pytest python3-ruff
+            pyproject-rpm-macros desktop-file-utils python3-pytest python3-ruff \
+            gtk4 libadwaita python3-gobject dbus-daemon xorg-x11-server-Xvfb
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -39,6 +40,14 @@ jobs:
         run: |
           python3 -m pytest -q
           ruff check .
+
+      - name: Smoke-test GTK application startup
+        run: |
+          set +e
+          timeout 10s dbus-run-session -- xvfb-run -a python3 -m rpmdrop
+          status=$?
+          set -e
+          test "$status" -eq 124
 
       - name: Verify RPM artifact
         run: |
