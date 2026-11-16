@@ -152,6 +152,18 @@ def test_executes_only_after_revalidating_preview(tmp_path: Path):
     fake.goal.do_transaction.assert_called_once()
 
 
+def test_requires_dnf5_completion_confirmation(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionExecutionError, match="without confirming"),
+    ):
+        preview = resolve_local_rpm(rpm_file)
+        execute_transaction(preview)
+
+
 def test_refuses_execution_when_transaction_changed(tmp_path: Path):
     rpm_file = tmp_path / "example.rpm"
     rpm_file.write_bytes(b"rpm")
