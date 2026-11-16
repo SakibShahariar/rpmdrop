@@ -426,14 +426,22 @@ class RpmDropWindow(Adw.ApplicationWindow):
             lines.extend(f"- {warning}" for warning in preview.warnings)
         removals = [
             item for item in preview.items
-            if item.action.lower() in {"remove", "erase"}
+            if item.action.lower() in removal_actions
         ]
 
-        download_size = sum(item.download_size for item in preview.items)
+        download_actions = {"install", "upgrade", "downgrade", "reinstall"}
+        removal_actions = {"remove", "erase", "obsolete", "obsoleted", "replaced"}
+        download_size = sum(
+            item.download_size
+            for item in preview.items
+            if item.action.lower() in download_actions
+        )
         disk_delta = sum(
             -item.install_size
-            if item.action.lower() in {"remove", "erase", "obsolete"}
+            if item.action.lower() in removal_actions
             else item.install_size
+            if item.action.lower() in download_actions
+            else 0
             for item in preview.items
         )
         lines.extend((
