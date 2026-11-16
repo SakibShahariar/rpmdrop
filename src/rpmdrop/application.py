@@ -105,6 +105,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.details.set_visible(False)
         content.append(self.details)
 
+        self.requirements_group = Adw.PreferencesGroup(title="Package requirements")
+        self.requirements_group.set_visible(False)
+        content.append(self.requirements_group)
+        self.requirements_row: Adw.ActionRow | None = None
+
         self.description = Gtk.Label()
         self.description.set_xalign(0)
         self.description.set_wrap(True)
@@ -126,7 +131,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
         for row in self._rows:
             self.details.remove(row)
         self._rows.clear()
+        if self.requirements_row is not None:
+            self.requirements_group.remove(self.requirements_row)
+            self.requirements_row = None
         self.details.set_visible(False)
+        self.requirements_group.set_visible(False)
         self.description.set_visible(False)
 
     def _add_row(self, title: str, value: str) -> None:
@@ -240,7 +249,16 @@ class RpmDropWindow(Adw.ApplicationWindow):
             ("File", str(info.path)),
         ):
             self._add_row(title, value)
+
+        requirement_text = "\n".join(info.requirements) if info.requirements else "No requirements listed"
+        self.requirements_row = Adw.ActionRow(
+            title=f"Requires ({len(info.requirements)})",
+            subtitle=requirement_text,
+        )
+        self.requirements_row.set_subtitle_selectable(True)
+        self.requirements_group.add(self.requirements_row)
         self.details.set_visible(True)
+        self.requirements_group.set_visible(True)
         self.description.set_text(f"{info.summary}\n\n{info.description}")
         self.description.set_visible(True)
         self.drop_area.set_visible(False)
