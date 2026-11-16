@@ -43,6 +43,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_spinner: Gtk.Spinner | None = None
         self._install_progress: Gtk.ProgressBar | None = None
         self._install_cancel_button: Gtk.Widget | None = None
+        self._cancel_confirmed = False
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(outer)
@@ -460,6 +461,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
 
     def _start_installation(self, preview: TransactionPreview) -> None:
         self._active_preview = preview
+        self._cancel_confirmed = False
         dialog = Gtk.Dialog(title="Installing packages", transient_for=self, modal=True)
         dialog.set_default_size(460, 180)
         dialog.set_deletable(False)
@@ -538,11 +540,17 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 "Cancellation requested. Waiting for DNF5 to finish…"
                 if success else f"DNF5 could not cancel: {message}"
             )
+            if success:
+                GLib.idle_add(self._mark_cancel_confirmed)
         except TransactionExecutionError as error:
             status = str(error)
         GLib.idle_add(self._set_install_status, status)
         if self._install_cancel_button is not None and "could not cancel" in status.lower():
             GLib.idle_add(self._install_cancel_button.set_sensitive, True)
+
+    def _mark_cancel_confirmed(self) -> bool:
+        self._cancel_confirmed = True
+        return GLib.SOURCE_REMOVE
 
     def _installation_finished(self, error: str | None) -> bool:
         if self._install_spinner is not None:
@@ -564,9 +572,17 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 "The DNF5 daemon confirmed that the package transaction completed.",
                 False,
             )
+        elif self._cancel_confirmed:
+            self.status.set_text("Installation cancelled.")
+            self._show_install_result(
+                "Installation cancelled",
+                "DNF5 cancelled the transaction during package download. No RPM transaction was started.",
+                False,
+            )
         else:
             self.status.set_text("Installation did not complete.")
             self._show_install_result("Installation failed", error, True)
+        self._cancel_confirmed = False
         return GLib.SOURCE_REMOVE
 
     def _show_install_result(self, title: str, message: str, is_error: bool) -> None:
