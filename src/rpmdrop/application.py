@@ -128,10 +128,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.details.set_visible(False)
         content.append(self.details)
 
-        self.requirements_group = Adw.PreferencesGroup(title="Package requirements")
+        self.requirements_group = Adw.PreferencesGroup(title="Dependencies and capabilities")
         self.requirements_group.set_visible(False)
         content.append(self.requirements_group)
         self.requirements_row: Adw.ActionRow | None = None
+        self.provides_row: Adw.ActionRow | None = None
 
         self.preview_button = Gtk.Button(label="Preview transaction")
         self.preview_button.add_css_class("suggested-action")
@@ -171,6 +172,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         if self.requirements_row is not None:
             self.requirements_group.remove(self.requirements_row)
             self.requirements_row = None
+        if self.provides_row is not None:
+            self.requirements_group.remove(self.provides_row)
+            self.provides_row = None
         self.details.set_visible(False)
         self.requirements_group.set_visible(False)
         self.description.set_visible(False)
@@ -592,6 +596,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         )
         self.requirements_row.set_subtitle_selectable(True)
         self.requirements_group.add(self.requirements_row)
+        provides_text = "\n".join(info.provides) if info.provides else "No capabilities listed"
+        self.provides_row = Adw.ActionRow(
+            title=f"Provides ({len(info.provides)})",
+            subtitle=provides_text,
+        )
+        self.provides_row.set_subtitle_selectable(True)
+        self.requirements_group.add(self.provides_row)
         self.details.set_visible(True)
         self.requirements_group.set_visible(True)
         self.description.set_text(f"{info.summary}\n\n{info.description}")
