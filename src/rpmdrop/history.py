@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import closing
 import os
 import sqlite3
 from dataclasses import dataclass
@@ -65,7 +66,7 @@ class HistoryStore:
         if status not in {"success", "failed", "cancelled"}:
             raise ValueError(f"Unsupported operation status: {status}")
         package_list = tuple(str(package) for package in packages)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO operations (created_at, status, packages_json, details)
@@ -89,7 +90,7 @@ class HistoryStore:
 
     def list_recent(self, limit: int = 50) -> tuple[OperationRecord, ...]:
         bounded_limit = max(1, min(int(limit), 100))
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             rows = connection.execute(
                 """
                 SELECT id, created_at, status, packages_json, details
