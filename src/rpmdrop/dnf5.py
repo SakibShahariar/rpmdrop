@@ -93,6 +93,7 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
     dbus = _dbus_module()
     bus_name = "org.rpm.dnf.v0"
     object_path = "/" + bus_name.replace(".", "/")
+    session_path = None
     try:
         bus = dbus.SystemBus()
         session_manager = dbus.Interface(
@@ -143,8 +144,14 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
             )
         return TransactionPreview(path, items, warnings, str(session_path))
     except TransactionResolutionError:
+        if session_path is not None:
+            with suppress(Exception):
+                session_manager.close_session(dbus.ObjectPath(str(session_path)))
         raise
     except Exception as error:
+        if session_path is not None:
+            with suppress(Exception):
+                session_manager.close_session(dbus.ObjectPath(str(session_path)))
         message = str(error)
         dbus_name = getattr(error, "get_dbus_name", lambda: "")()
         if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown" or "ServiceUnknown" in message:
