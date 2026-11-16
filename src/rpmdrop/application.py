@@ -19,6 +19,7 @@ from rpmdrop.dnf5 import (
     TransactionResolutionError,
     cancel_transaction,
     close_session,
+    classify_transaction_error,
     execute_transaction,
     resolve_local_rpm,
 )
@@ -653,6 +654,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
     def _installation_finished(self, error: str | None) -> bool:
         preview = self._active_preview
         history_error = None
+        failure_category, failure_title, failure_summary = (
+            classify_transaction_error(error) if error else ("", "", "")
+        )
         if preview is not None:
             packages = tuple(
                 f"{item.action} {item.name}-{item.version}-{item.release}.{item.architecture}"
@@ -661,11 +665,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             operation_status = (
                 "success" if error is None
                 else "cancelled" if self._cancel_confirmed
-                else "authorization-denied"
-                if any(
-                    marker in error.lower()
-                    for marker in ("notauthorized", "not authorized", "authorization denied")
-                )
+                else "authorization-denied" if failure_category == "authorization"
                 else "failed"
             )
             try:
@@ -702,9 +702,10 @@ class RpmDropWindow(Adw.ApplicationWindow):
             self._show_install_result("Installation cancelled", message, False)
         else:
             self.status.set_text("Installation did not complete.")
+            details = f"{failure_summary}\n\nDiagnostic details:\n{error}"
             if history_error:
-                error += f"\n\nHistory could not be saved: {history_error}"
-            self._show_install_result("Installation failed", error, True)
+                details += f"\n\nHistory could not be saved: {history_error}"
+            self._show_install_result(failure_title, details, True)
         self._cancel_confirmed = False
         return GLib.SOURCE_REMOVE
 
