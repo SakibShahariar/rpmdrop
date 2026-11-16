@@ -41,12 +41,14 @@ installation.
 %pyproject_save_files rpmdrop
 
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
+desktop-file-validate %{buildroot}%{_bindir}/rpmdrop
+%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 
 %files -f %{pyproject_files}
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
+%{_datadir}/nautilus-python/extensions/__pycache__/*.pyc
 
 %changelog
 * Mon Nov 16 2026 Sakib Shahariar Shimanto <sakibshahariar@users.noreply.github.com> - 0.1.0-1
