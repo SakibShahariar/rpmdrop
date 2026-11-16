@@ -177,10 +177,10 @@ def execute_transaction(
             )
 
         if progress_callback is not None:
-            def report(label: str):
+            def report(label: str, has_progress: bool = True):
                 def handler(_session, *values):
                     fraction = None
-                    if len(values) >= 2:
+                    if has_progress and len(values) >= 2:
                         try:
                             total = float(values[-1])
                             if total > 0:
@@ -191,14 +191,13 @@ def execute_transaction(
                 return handler
 
             signal_handlers = (
-                ("transaction_elem_progress", "Preparing {} ({}/{})"),
+                ("transaction_elem_progress", "Preparing {} ({}/{})", True),
                 ("transaction_action_start", "{}: {}", False),
-                ("transaction_transaction_progress", "Downloading packages ({}/{})"),
-                ("transaction_action_progress", "Installing {} ({}/{})"),
+                ("transaction_transaction_progress", "Downloading packages ({}/{})", True),
+                ("transaction_action_progress", "Installing {} ({}/{})", True),
             )
-            for signal in signal_handlers:
-                signal_name, message, *progress_flag = signal
-                handler = report(message) if not progress_flag else report(message)
+            for signal_name, message, has_progress in signal_handlers:
+                handler = report(message, has_progress)
                 bus.add_signal_receiver(
                     handler,
                     signal_name=signal_name,
