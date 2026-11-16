@@ -177,27 +177,34 @@ def execute_transaction(
             )
 
         if progress_callback is not None:
-            def report(label: str, has_progress: bool = True):
+            def report(prefix: str, has_progress: bool = True, has_subject: bool = False):
                 def handler(_session, *values):
                     fraction = None
                     if has_progress and len(values) >= 2:
                         try:
+                            processed = float(values[-2])
                             total = float(values[-1])
                             if total > 0:
-                                fraction = max(0.0, min(1.0, float(values[-2]) / total))
+                                fraction = max(0.0, min(1.0, processed / total))
                         except (TypeError, ValueError):
                             fraction = None
-                    progress_callback(label.format(*values), fraction)
+                    if has_progress and len(values) >= 2:
+                        subject = f" {values[0]}" if has_subject and values else ""
+                        message = f"{prefix}{subject} ({values[-2]}/{values[-1]})"
+                    else:
+                        detail = " ".join(str(value) for value in values)
+                        message = f"{prefix}: {detail}" if detail else prefix
+                    progress_callback(message, fraction)
                 return handler
 
             signal_handlers = (
-                ("transaction_elem_progress", "Preparing {} ({}/{})", True),
-                ("transaction_action_start", "{}: {}", False),
-                ("transaction_transaction_progress", "Downloading packages ({}/{})", True),
-                ("transaction_action_progress", "Installing {} ({}/{})", True),
+                ("transaction_elem_progress", "Preparing", True, True),
+                ("transaction_action_start", "Starting action", False, False),
+                ("transaction_transaction_progress", "Downloading packages", True, False),
+                ("transaction_action_progress", "Installing", True, True),
             )
-            for signal_name, message, has_progress in signal_handlers:
-                handler = report(message, has_progress)
+            for signal_name, prefix, has_progress, has_subject in signal_handlers:
+                handler = report(prefix, has_progress, has_subject)
                 bus.add_signal_receiver(
                     handler,
                     signal_name=signal_name,
