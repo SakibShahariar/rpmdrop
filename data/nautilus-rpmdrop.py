@@ -13,6 +13,7 @@ class RpmDropMenuProvider(GObject.GObject, Nautilus.MenuProvider):
             file_info.get_location()
             for file_info in files
             if file_info.get_uri_scheme() == "file"
+            and not file_info.is_directory()
             and file_info.get_name().lower().endswith(".rpm")
         ]
         if not rpm_files:
