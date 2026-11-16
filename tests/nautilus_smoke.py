@@ -57,7 +57,7 @@ def main() -> None:
     menu_items = provider.get_file_items(selected)
     if len(menu_items) != 1:
         raise SystemExit("The Nautilus provider did not create exactly one menu item.")
-    if menu_items[0].get_label() != "Inspect with RpmDrop":
+    if menu_items[0].get_property("label") != "Inspect with RpmDrop":
         raise SystemExit("The Nautilus context-menu label is incorrect.")
 
     app_info = MagicMock()
