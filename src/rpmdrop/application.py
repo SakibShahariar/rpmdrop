@@ -209,6 +209,12 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.set_margin_start(12)
         content.set_margin_end(12)
 
+        intro = Gtk.Label(label="Only transactions started by RpmDrop are listed here.")
+        intro.set_xalign(0)
+        intro.set_wrap(True)
+        intro.add_css_class("dim-label")
+        content.append(intro)
+
         try:
             records = self.history_store.list_recent()
         except (OSError, sqlite3.Error) as error:
