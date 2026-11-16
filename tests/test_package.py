@@ -67,7 +67,7 @@ def test_reports_rpm_query_errors(mock_run, _which, tmp_path: Path):
 def test_requirement_metadata_errors_do_not_break_inspection(mock_run, _which, tmp_path: Path):
     rpm_file = tmp_path / "broken-requirements.rpm"
     rpm_file.write_bytes(b"rpm")
-    metadata = "sample\\x1f1\\x1f1\\x1fx86_64\\x1fsummary\\x1fdescription\\x1fvendor\\x1fpackager\\x1fMIT"
+    metadata = "sample\x1f1\x1f1\x1fx86_64\x1fsummary\x1fdescription\x1fvendor\x1fpackager\x1fMIT"
     mock_run.side_effect = [
         subprocess.CompletedProcess([], 0, metadata, ""),
         subprocess.CompletedProcess([], 1, "", "cannot read requirements"),
@@ -88,7 +88,7 @@ def test_requirement_metadata_errors_do_not_break_inspection(mock_run, _which, t
 def test_provides_metadata_errors_do_not_break_inspection(mock_run, _which, tmp_path: Path):
     rpm_file = tmp_path / "broken-provides.rpm"
     rpm_file.write_bytes(b"rpm")
-    metadata = "sample\\x1f1\\x1f1\\x1fx86_64\\x1fsummary\\x1fdescription\\x1fvendor\\x1fpackager\\x1fMIT"
+    metadata = "sample\x1f1\x1f1\x1fx86_64\x1fsummary\x1fdescription\x1fvendor\x1fpackager\x1fMIT"
     mock_run.side_effect = [
         subprocess.CompletedProcess([], 0, metadata, ""),
         subprocess.CompletedProcess([], 0, "glibc", ""),
