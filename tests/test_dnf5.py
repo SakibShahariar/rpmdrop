@@ -296,3 +296,41 @@ def test_classifies_transaction_failures(message, expected_category):
     assert category == expected_category
     assert title
     assert explanation
+
+
+
+def test_closes_session_when_dependency_resolution_fails(tmp_path: Path):
+    rpm_file = tmp_path / "broken.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(result=2, problems=["Unsatisfied dependency"])
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionResolutionError, match="Unsatisfied dependency"),
+    ):
+        resolve_local_rpm(rpm_file)
+    fake.session_manager.close_session.assert_called_once_with("/session/1")
+
+
+def test_closes_session_when_resolution_returns_no_changes(tmp_path: Path):
+    rpm_file = tmp_path / "empty.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(result=0, items=[])
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionResolutionError, match="empty transaction"),
+    ):
+        resolve_local_rpm(rpm_file)
+    fake.session_manager.close_session.assert_called_once_with("/session/1")
+
+
+def test_closes_session_when_dbus_resolution_raises(tmp_path: Path):
+    rpm_file = tmp_path / "unavailable.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus()
+    fake.goal.resolve.side_effect = RuntimeError("daemon disconnected")
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionResolutionError, match="daemon disconnected"),
+    ):
+        resolve_local_rpm(rpm_file)
+    fake.session_manager.close_session.assert_called_once_with("/session/1")
