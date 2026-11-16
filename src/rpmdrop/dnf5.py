@@ -271,20 +271,21 @@ def execute_transaction(
             )
             receivers.append(action_started)
 
-            def transaction_completed(_session, success):
-                completion_state["success"] = bool(success)
+        def transaction_completed(_session, success):
+            completion_state["success"] = bool(success)
+            if progress_callback is not None:
                 progress_callback(
                     "RPM transaction completed." if success else "RPM transaction failed.",
                     1.0 if success else None,
                 )
 
-            bus.add_signal_receiver(
-                transaction_completed,
-                signal_name="transaction_after_complete",
-                dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
-                path=preview.session_path,
-            )
-            receivers.append(transaction_completed)
+        bus.add_signal_receiver(
+            transaction_completed,
+            signal_name="transaction_after_complete",
+            dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
+            path=preview.session_path,
+        )
+        receivers.append(transaction_completed)
 
         if progress_callback is not None:
             progress_callback("Requesting authorization and starting the transaction", None)
@@ -292,9 +293,9 @@ def execute_transaction(
             dbus.Dictionary({"interactive": True}, signature="sv"),
             timeout=3600,
         )
-        if completion_state["success"] is False:
+        if completion_state["success"] is not True:
             raise TransactionExecutionError(
-                "The DNF5 daemon reported that the RPM transaction did not complete."
+                "DNF5 returned without confirming successful RPM transaction completion."
             )
     except TransactionExecutionError:
         raise
