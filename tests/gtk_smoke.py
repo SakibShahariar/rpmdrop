@@ -29,6 +29,7 @@ def main() -> None:
     application.register(None)
     window = RpmDropWindow(application=application)
     window.set_default_size(480, 420)
+    assert window.get_resizable()
 
     info = PackageInfo(
         path=Path("/tmp/" + "long-package-path-" * 20 + ".rpm"),
@@ -93,7 +94,64 @@ def main() -> None:
         warnings=(),
         session_path="/session/1",
     )
+
     window.present()
+    with patch.object(window.history_store, "list_recent", return_value=()):
+        window._on_history_clicked(window.history_button)
+    while GLib.MainContext.default().iteration(False):
+        pass
+    toplevels = Gtk.Window.get_toplevels()
+    history_dialog = next(
+        (
+            toplevels.get_item(index)
+            for index in range(toplevels.get_n_items())
+            if toplevels.get_item(index).get_title() == "RpmDrop History"
+        ),
+        None,
+    )
+    assert history_dialog is not None
+    assert history_dialog.get_resizable()
+    assert history_dialog.get_modal()
+    assert history_dialog.get_transient_for() is window
+    history_dialog.destroy()
+
+    with patch("rpmdrop.application.threading.Thread") as thread:
+        window._start_installation(preview)
+        thread.assert_called_once()
+    install_dialog = window._install_dialog
+    assert install_dialog is not None
+    assert install_dialog.get_resizable()
+    assert install_dialog.get_modal()
+    assert install_dialog.get_transient_for() is window
+    assert not install_dialog.get_deletable()
+    install_dialog.destroy()
+    window._install_dialog = None
+    window._install_status = None
+    window._install_spinner = None
+    window._install_progress = None
+    window._install_cancel_button = None
+    window._active_preview = None
+    window.open_button.set_sensitive(True)
+    window.preview_button.set_sensitive(True)
+
+    window._show_install_result("Test result", "Result details. " * 200, False)
+    while GLib.MainContext.default().iteration(False):
+        pass
+    toplevels = Gtk.Window.get_toplevels()
+    result_dialog = next(
+        (
+            toplevels.get_item(index)
+            for index in range(toplevels.get_n_items())
+            if toplevels.get_item(index).get_title() == "Test result"
+        ),
+        None,
+    )
+    assert result_dialog is not None
+    assert result_dialog.get_resizable()
+    assert result_dialog.get_modal()
+    assert result_dialog.get_transient_for() is window
+    result_dialog.destroy()
+
     window._show_transaction_preview(preview)
     print("gtk-smoke: transaction preview constructed", flush=True)
     while GLib.MainContext.default().iteration(False):
