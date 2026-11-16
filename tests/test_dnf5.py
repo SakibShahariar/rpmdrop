@@ -203,6 +203,7 @@ def test_reports_dnf5_progress_fraction(tmp_path: Path):
     rpm_file.write_bytes(b"rpm")
     fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
     progress = []
+    fake.goal.do_transaction.side_effect = lambda *_args, **_kwargs: fake.bus.add_signal_receiver.call_args.args[0]("/session/1", True)
     with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
         preview = resolve_local_rpm(rpm_file)
         execute_transaction(
@@ -267,6 +268,7 @@ def test_reports_download_byte_progress(tmp_path: Path):
     rpm_file.write_bytes(b"rpm")
     fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
     progress = []
+    fake.goal.do_transaction.side_effect = lambda *_args, **_kwargs: fake.bus.add_signal_receiver.call_args.args[0]("/session/1", True)
     with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
         preview = resolve_local_rpm(rpm_file)
         execute_transaction(
