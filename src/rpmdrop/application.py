@@ -10,7 +10,7 @@ import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from rpmdrop.dnf5 import TransactionPreview, TransactionResolutionError, resolve_local_rpm
 from rpmdrop.package import PackageInfo, PackageInspectionError, inspect_package
@@ -39,6 +39,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.open_button.connect("clicked", self._on_open_clicked)
         header.pack_end(self.open_button)
 
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_child(Gtk.Box(orientation=Gtk.Orientation.VERTICAL))
+        outer.append(scroller)
+
         content = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=18,
@@ -47,7 +52,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             margin_start=28,
             margin_end=28,
         )
-        outer.append(content)
+        scroller.set_child(content)
 
         intro = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         content.append(intro)
@@ -89,6 +94,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.drop_area.add_css_class("card")
         self.drop_area.set_size_request(-1, 170)
         content.append(self.drop_area)
+        drop_target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
+        drop_target.connect("drop", self._on_drop)
+        self.drop_area.add_controller(drop_target)
 
         drop_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
         drop_icon.set_pixel_size(40)
@@ -135,6 +143,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         footer.add_css_class("dim-label")
         footer.add_css_class("caption")
         content.append(footer)
+
+    def _on_drop(self, _target: Gtk.DropTarget, value: Gio.File, _x: float, _y: float) -> bool:
+        path = value.get_path() if isinstance(value, Gio.File) else None
+        if path is None or not path.lower().endswith(".rpm"):
+            return False
+        self.inspect_paths([path])
+        return True
 
     def _clear_details(self) -> None:
         for row in self._rows:
