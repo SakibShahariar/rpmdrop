@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 import threading
 from pathlib import Path
@@ -12,6 +13,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+from rpmdrop.history import HistoryStore
 from rpmdrop.dnf5 import (
     TransactionExecutionError,
     TransactionPreview,
@@ -44,12 +46,17 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_progress: Gtk.ProgressBar | None = None
         self._install_cancel_button: Gtk.Widget | None = None
         self._cancel_confirmed = False
+        self.history_store = HistoryStore()
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(outer)
 
         header = Adw.HeaderBar()
         outer.append(header)
+        self.history_button = Gtk.Button(label="History")
+        self.history_button.set_tooltip_text("View recent package operations")
+        self.history_button.connect("clicked", self._on_history_clicked)
+        header.pack_start(self.history_button)
         self.open_button = Gtk.Button(label="Open RPM")
         self.open_button.add_css_class("suggested-action")
         self.open_button.connect("clicked", self._on_open_clicked)
@@ -189,6 +196,53 @@ class RpmDropWindow(Adw.ApplicationWindow):
         row.set_subtitle_selectable(True)
         self.details.add(row)
         self._rows.append(row)
+
+    def _on_history_clicked(self, _button: Gtk.Button) -> None:
+        dialog = Gtk.Dialog(title="Installation History", transient_for=self, modal=True)
+        dialog.set_default_size(600, 440)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        content = dialog.get_content_area()
+        content.set_spacing(10)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        try:
+            records = self.history_store.list_recent()
+        except (OSError, sqlite3.Error) as error:
+            records = ()
+            message = f"Could not read local history: {error}"
+        else:
+            message = "No package operations have been recorded yet."
+
+        if not records:
+            empty = Gtk.Label(label=message)
+            empty.set_wrap(True)
+            empty.set_xalign(0)
+            content.append(empty)
+        else:
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_vexpand(True)
+            rows = Gtk.ListBox()
+            rows.set_selection_mode(Gtk.SelectionMode.NONE)
+            for record in records:
+                packages = "\n".join(record.packages) or "No package details recorded"
+                timestamp = record.created_at.astimezone().strftime("%Y-%m-%d %H:%M")
+                subtitle = f"{timestamp} · {record.status.title()}\n{packages}"
+                if record.details:
+                    subtitle += f"\n{record.details}"
+                row = Adw.ActionRow(
+                    title=f"{len(record.packages)} package(s)",
+                    subtitle=subtitle,
+                )
+                row.set_subtitle_selectable(True)
+                rows.append(row)
+            scroller.set_child(rows)
+            content.append(scroller)
+
+        dialog.connect("response", lambda window, _response: window.destroy())
+        dialog.present()
 
     def _on_open_clicked(self, _button: Gtk.Button) -> None:
         chooser = Gtk.FileChooserNative.new(
@@ -553,6 +607,23 @@ class RpmDropWindow(Adw.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _installation_finished(self, error: str | None) -> bool:
+        preview = self._active_preview
+        history_error = None
+        if preview is not None:
+            packages = tuple(
+                f"{item.action} {item.name}-{item.version}-{item.release}.{item.architecture}"
+                for item in preview.items
+            )
+            operation_status = (
+                "success" if error is None
+                else "cancelled" if self._cancel_confirmed
+                else "failed"
+            )
+            try:
+                self.history_store.record(operation_status, packages, error or "")
+            except (OSError, sqlite3.Error, ValueError) as save_error:
+                history_error = str(save_error)
+
         if self._install_spinner is not None:
             self._install_spinner.stop()
         if self._install_dialog is not None:
@@ -567,20 +638,23 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.preview_button.set_sensitive(True)
         if error is None:
             self.status.set_text("Installation completed successfully.")
-            self._show_install_result(
-                "Installation completed",
-                "The DNF5 daemon confirmed that the package transaction completed.",
-                False,
-            )
+            message = "The DNF5 daemon confirmed that the package transaction completed."
+            if history_error:
+                message += f"\n\nHistory could not be saved: {history_error}"
+            self._show_install_result("Installation completed", message, False)
         elif self._cancel_confirmed:
             self.status.set_text("Installation cancelled.")
-            self._show_install_result(
-                "Installation cancelled",
-                "DNF5 cancelled the transaction during package download. No RPM transaction was started.",
-                False,
+            message = (
+                "DNF5 cancelled the transaction during package download. "
+                "No RPM transaction was started."
             )
+            if history_error:
+                message += f"\n\nHistory could not be saved: {history_error}"
+            self._show_install_result("Installation cancelled", message, False)
         else:
             self.status.set_text("Installation did not complete.")
+            if history_error:
+                error += f"\n\nHistory could not be saved: {history_error}"
             self._show_install_result("Installation failed", error, True)
         self._cancel_confirmed = False
         return GLib.SOURCE_REMOVE
