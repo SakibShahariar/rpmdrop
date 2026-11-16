@@ -286,6 +286,40 @@ def test_reports_download_byte_progress(tmp_path: Path):
     assert progress[-1] == ("Downloading example.rpm (50/100 bytes)", 0.5)
 
 
+
+def test_unregisters_signal_receivers_with_matching_filters(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+
+    def complete(*_args, **_kwargs):
+        completion = next(
+            call.args[0]
+            for call in fake.bus.add_signal_receiver.call_args_list
+            if call.kwargs.get("signal_name") == "transaction_after_complete"
+        )
+        completion("/session/1", True)
+
+    fake.goal.do_transaction.side_effect = complete
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        execute_transaction(
+            preview,
+            progress_callback=lambda _message, _fraction: None,
+        )
+
+    registered = fake.bus.add_signal_receiver.call_args_list
+    removed = fake.bus.remove_signal_receiver.call_args_list
+    assert len(removed) == len(registered)
+    for add_call, remove_call in zip(registered, removed, strict=True):
+        assert remove_call.args[0] is add_call.args[0]
+        assert remove_call.kwargs == {
+            "signal_name": add_call.kwargs["signal_name"],
+            "dbus_interface": add_call.kwargs["dbus_interface"],
+            "path": preview.session_path,
+        }
+
+
 def test_empty_preview_cannot_be_executed():
     preview = TransactionPreview(
         package_path=Path("/tmp/empty.rpm"),
