@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from rpmdrop.package import PackageInspectionError, inspect_package, inspect_signature
+from rpmdrop.package import (\n    PackageInspectionError,\n    SignatureInfo,\n    inspect_package,\n    inspect_signature,\n)
 
 
 def test_rejects_non_rpm_extension(tmp_path: Path):
@@ -33,7 +33,7 @@ def test_parses_package_metadata_and_requirements(mock_run, _which, tmp_path: Pa
         subprocess.CompletedProcess([], 0, metadata, ""),
         subprocess.CompletedProcess([], 0, "glibc\npython(abi) = 3.12\n", ""),
     ]
-    with patch("rpmdrop.package.inspect_signature", return_value="Signature OK"):
+    with patch(\n        "rpmdrop.package.inspect_signature",\n        return_value=SignatureInfo("trusted", "Trusted", "Verified.", ""),\n    ):
         info = inspect_package(rpm_file)
     assert info.name == "sample"
     assert info.version == "1.2.3"
@@ -68,23 +68,51 @@ def test_reports_requirement_query_errors(mock_run, _which, tmp_path: Path):
 
 @patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
 @patch("rpmdrop.package._run")
-def test_unsigned_package_is_not_reported_as_signature_verified(mock_run, _which, tmp_path):
+def test_unsigned_package_is_distinguished_from_trusted(mock_run, _which, tmp_path):
     mock_run.return_value = subprocess.CompletedProcess([], 0, "digests OK", "")
     result = inspect_signature(tmp_path / "unsigned.rpm")
-    assert "no trusted signature was confirmed" in result
+    assert result.status == "unsigned"
+    assert "no cryptographic signature" in result.explanation
 
 
 @patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
 @patch("rpmdrop.package._run")
 def test_unknown_signing_key_is_not_trusted(mock_run, _which, tmp_path):
-    mock_run.return_value = subprocess.CompletedProcess([], 0, "NOKEY", "")
+    mock_run.return_value = subprocess.CompletedProcess(
+        [], 1, "Header V4 RSA/SHA256 Signature, key ID 1234: NOKEY", ""
+    )
     result = inspect_signature(tmp_path / "unknown-key.rpm")
-    assert "not trusted or unavailable" in result
+    assert result.status == "unknown-key"
+    assert "not trusted" in result.explanation
 
 
 @patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
 @patch("rpmdrop.package._run")
-def test_valid_signature_is_reported(mock_run, _which, tmp_path):
+def test_valid_signature_requires_digest_and_signature_success(mock_run, _which, tmp_path):
     mock_run.return_value = subprocess.CompletedProcess([], 0, "digests signatures OK", "")
     result = inspect_signature(tmp_path / "signed.rpm")
-    assert result.startswith("Signature and digest checks passed")
+    assert result.status == "trusted"
+
+
+@pytest.mark.parametrize(
+    ("output", "status"),
+    [
+        ("BAD signature", "signature-failed"),
+        ("BAD digest", "digest-failed"),
+        ("digests NOT OK", "digest-failed"),
+    ],
+)
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_failed_signature_and_digest_checks_are_distinct(
+    mock_run, _which, tmp_path, output, status
+):
+    mock_run.return_value = subprocess.CompletedProcess([], 1, output, "")
+    result = inspect_signature(tmp_path / "broken.rpm")
+    assert result.status == status
+
+
+@patch("rpmdrop.package.shutil.which", return_value=None)
+def test_reports_unavailable_signature_tool(_which, tmp_path):
+    result = inspect_signature(tmp_path / "unknown.rpm")
+    assert result.status == "unavailable"
