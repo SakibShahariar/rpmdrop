@@ -85,6 +85,16 @@ def test_returns_structured_transaction_without_executing(tmp_path: Path):
     assert not hasattr(fake.goal, "do_transaction") or not fake.goal.do_transaction.called
 
 
+def test_reports_missing_dnf5_daemon(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus()
+    fake.bus.get_object.side_effect = RuntimeError("ServiceUnknown")
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        with pytest.raises(TransactionResolutionError, match="dnf5daemon-server"):
+            resolve_local_rpm(rpm_file)
+
+
 def test_reports_solver_problems(tmp_path: Path):
     rpm_file = tmp_path / "example.rpm"
     rpm_file.write_bytes(b"rpm")
