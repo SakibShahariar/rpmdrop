@@ -33,7 +33,7 @@ class PackageInfo:
     vendor: str
     packager: str
     license: str
-    signature: str
+    signature: SignatureInfo
     requirements: tuple[str, ...]
     provides: tuple[str, ...]
     requirements_error: str | None
