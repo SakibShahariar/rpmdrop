@@ -9,6 +9,7 @@ from rpmdrop.dnf5 import (
     TransactionResolutionError,
     cancel_transaction,
     close_session,
+    classify_transaction_error,
     execute_transaction,
     resolve_local_rpm,
 )
@@ -272,3 +273,24 @@ def test_empty_preview_cannot_be_executed():
     )
     with pytest.raises(TransactionExecutionError, match="no package changes"):
         execute_transaction(preview)
+
+
+
+@pytest.mark.parametrize(
+    ("message", "expected_category"),
+    [
+        ("NotAuthorized: PolicyKit denied request", "authorization"),
+        ("No space left on device", "disk-space"),
+        ("Could not resolve host mirror.example", "network"),
+        ("Failed to download repomd.xml", "network"),
+        ("No enabled repositories", "repository"),
+        ("File conflicts with an existing package", "package-conflict"),
+        ("Nothing provides libexample.so.1", "dependency"),
+        ("Unexpected daemon error", "generic"),
+    ],
+)
+def test_classifies_transaction_failures(message, expected_category):
+    category, title, explanation = classify_transaction_error(message)
+    assert category == expected_category
+    assert title
+    assert explanation
