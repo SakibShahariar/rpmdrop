@@ -173,7 +173,7 @@ def execute_transaction(
     if not preview.items:
         raise TransactionExecutionError("The preview contains no package changes to install.")
     dbus = _dbus_module()
-    receivers = []
+    receivers: list[tuple[Any, str, str]] = []
     completion_state: dict[str, bool | None] = {"success": None}
     try:
         bus, goal = _goal_for_session(dbus, preview.session_path)
@@ -241,7 +241,7 @@ def execute_transaction(
                     dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
                     path=preview.session_path,
                 )
-                receivers.append(handler)
+                receivers.append((handler, "org.rpm.dnf.v0.rpm.Rpm", signal_name))
 
             def action_started(_session, nevra, _action, _total):
                 progress_callback(f"Starting package action: {nevra}", None)
@@ -261,7 +261,7 @@ def execute_transaction(
                 dbus_interface="org.rpm.dnf.v0.Base",
                 path=preview.session_path,
             )
-            receivers.append(download_progress)
+            receivers.append((download_progress, "org.rpm.dnf.v0.Base", "download_progress"))
 
             bus.add_signal_receiver(
                 action_started,
@@ -269,7 +269,7 @@ def execute_transaction(
                 dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
                 path=preview.session_path,
             )
-            receivers.append(action_started)
+            receivers.append((action_started, "org.rpm.dnf.v0.rpm.Rpm", "transaction_action_start"))
 
         def transaction_completed(_session, success):
             completion_state["success"] = bool(success)
@@ -285,7 +285,7 @@ def execute_transaction(
             dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
             path=preview.session_path,
         )
-        receivers.append(transaction_completed)
+        receivers.append((transaction_completed, "org.rpm.dnf.v0.rpm.Rpm", "transaction_after_complete"))
 
         if progress_callback is not None:
             progress_callback("Requesting authorization and starting the transaction", None)
@@ -309,11 +309,12 @@ def execute_transaction(
         ) from error
     finally:
         if "bus" in locals():
-            for handler in receivers:
+            for handler, interface, signal_name in receivers:
                 with suppress(dbus.DBusException):
                     bus.remove_signal_receiver(
                         handler,
-                        dbus_interface="org.rpm.dnf.v0.SessionManager",
+                        signal_name=signal_name,
+                        dbus_interface=interface,
                         path=preview.session_path,
                     )
 
