@@ -78,7 +78,7 @@ def main() -> None:
     fake_gio.AppInfo.create_from_commandline.assert_called_once_with(
         "rpmdrop",
         "RpmDrop",
-        Gio.AppInfoCreateFlags.SUPPORTS_FILES,
+        Gio.AppInfoCreateFlags.NONE,
     )
     app_info.launch.assert_called_once_with(locations, None)
 
