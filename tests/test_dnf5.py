@@ -202,3 +202,19 @@ def test_refuses_execution_when_dnf5_warnings_change(tmp_path: Path):
         with pytest.raises(TransactionExecutionError, match="warnings changed"):
             execute_transaction(preview)
     fake.goal.do_transaction.assert_not_called()
+
+
+def test_reports_failed_rpm_transaction_completion(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+
+    def fail_transaction(*_args, **_kwargs):
+        completed = fake.bus.add_signal_receiver.call_args_list[-1].args[0]
+        completed("/session/1", False)
+
+    fake.goal.do_transaction.side_effect = fail_transaction
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        with pytest.raises(TransactionExecutionError, match="did not complete"):
+            execute_transaction(preview, progress_callback=lambda _message, _fraction: None)
