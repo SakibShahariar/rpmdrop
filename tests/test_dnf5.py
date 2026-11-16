@@ -196,7 +196,8 @@ def test_reports_dnf5_progress_fraction(tmp_path: Path):
         entry.args[0] for entry in fake.bus.add_signal_receiver.call_args_list
     ]
     handlers[0]("/session/1", "example-2.0-3.fc44.x86_64", 2, 4)
-    assert progress == [("Preparing example-2.0-3.fc44.x86_64 (2/4)", 0.5)]
+    assert progress[0] == ("Requesting authorization and starting the transaction", None)
+    assert progress[-1] == ("Preparing example-2.0-3.fc44.x86_64 (2/4)", 0.5)
 
 
 def test_refuses_execution_when_dnf5_warnings_change(tmp_path: Path):
@@ -261,7 +262,8 @@ def test_reports_download_byte_progress(tmp_path: Path):
     assert download_receiver.kwargs["dbus_interface"] == "org.rpm.dnf.v0.Base"
     download_handler = download_receiver.args[0]
     download_handler("/session/1", "example.rpm", 100, 50)
-    assert progress == [("Downloading example.rpm (50/100 bytes)", 0.5)]
+    assert progress[0] == ("Requesting authorization and starting the transaction", None)
+    assert progress[-1] == ("Downloading example.rpm (50/100 bytes)", 0.5)
 
 
 def test_empty_preview_cannot_be_executed():
