@@ -41,7 +41,6 @@ class RpmDropWindow(Adw.ApplicationWindow):
 
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_child(Gtk.Box(orientation=Gtk.Orientation.VERTICAL))
         outer.append(scroller)
 
         content = Gtk.Box(
