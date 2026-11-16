@@ -385,13 +385,18 @@ class RpmDropWindow(Adw.ApplicationWindow):
         trust_label = Gtk.Label(label=trust_text)
         trust_label.set_xalign(0)
         trust_label.set_wrap(True)
-        trust_label.add_css_class(\n            "warning" if removals or status in {"unsigned", "unknown-key"} else "dim-label"\n        )
+        trust_label.add_css_class(
+            "warning" if removals or status in {"unsigned", "unknown-key"} else "dim-label"
+        )
         content.append(trust_label)
 
         if blocked:
             acknowledgement_text = "Installation is blocked until package verification succeeds."
         elif removals and status in {"unsigned", "unknown-key"}:
-            acknowledgement_text = (\n                "I understand the signature warning and that packages will be removed, " \n                "and want to continue."\n            )
+            acknowledgement_text = (
+                "I understand the signature warning and that packages will be removed, "
+                "and want to continue."
+            )
         elif removals:
             acknowledgement_text = (
                 "I reviewed the transaction, understand that packages will be removed, "
