@@ -94,19 +94,32 @@ jobs:
           test "$app_status" -eq 124
           PYTHONPATH=src xvfb-run -a dbus-run-session -- python3 tests/gtk_smoke.py
 
-      - name: Verify RPM artifact
+      - name: Verify RPM artifacts and optional Nautilus integration
         run: |
           rpm_file=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-0.1.0-1*.noarch.rpm" -print -quit)
+          nautilus_rpm=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-nautilus-0.1.0-1*.noarch.rpm" -print -quit)
           test -n "$rpm_file"
+          test -n "$nautilus_rpm"
           rpm -qpl "$rpm_file"
-          dnf install -y "$rpm_file"
-          rpm -q rpmdrop
+          rpm -qpl "$nautilus_rpm"
+          dnf install -y "$rpm_file" "$nautilus_rpm"
+          rpm -q rpmdrop rpmdrop-nautilus
           command -v rpmdrop
           test -f /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
           test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
           python3 tests/nautilus_smoke.py
+
+          # The context-menu integration can be removed independently.
+          dnf remove -y rpmdrop-nautilus
+          rpm -q rpmdrop
+          test ! -e /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
+          dnf install -y "$nautilus_rpm"
+          test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
+
+          # Removing the main app also removes the dependent extension.
           dnf remove -y rpmdrop
           ! rpm -q rpmdrop
+          ! rpm -q rpmdrop-nautilus
           test ! -e /usr/bin/rpmdrop
           test ! -e /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
           test ! -e /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
