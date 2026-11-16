@@ -159,7 +159,10 @@ def inspect_signature(package_path: Path) -> SignatureInfo:
     if any(marker in lowered for marker in (
         "bad signature", "signatures bad", "signatures not ok", "signature not ok",
         "signature verification failed",
-    )):
+    )) or any(
+        "signature" in line and (": bad" in line or "not ok" in line)
+        for line in lowered.splitlines()
+    ):
         return SignatureInfo(
             "signature-failed",
             "Package signature verification failed",
@@ -169,7 +172,10 @@ def inspect_signature(package_path: Path) -> SignatureInfo:
     if any(marker in lowered for marker in (
         "bad digest", "digests bad", "digest bad", "digests not ok",
         "digest not ok", "digest verification failed",
-    )):
+    )) or any(
+        "digest" in line and (": bad" in line or "not ok" in line)
+        for line in lowered.splitlines()
+    ):
         return SignatureInfo(
             "digest-failed",
             "Package digest verification failed",
