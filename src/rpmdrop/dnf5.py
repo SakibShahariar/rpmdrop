@@ -222,7 +222,7 @@ def execute_transaction(
 
             signal_handlers = (
                 ("transaction_elem_progress", "Preparing", True, True),
-                ("transaction_transaction_progress", "Downloading packages", True, False),
+                ("transaction_transaction_progress", "Preparing transaction packages", True, False),
                 ("transaction_action_progress", "Processing", True, True),
                 ("transaction_before_begin", "Starting RPM transaction", False, False),
             )
