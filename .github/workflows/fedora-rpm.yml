@@ -85,14 +85,15 @@ jobs:
           PYTHONPATH=src timeout 120s python3 tests/dnf5_integration.py "$smoke_rpm"
           kill "$daemon_pid" || true
 
-      - name: Smoke-test GTK application startup
+      - name: Smoke-test unprivileged GTK application startup
         run: |
+          useradd --create-home rpmdrop-test
           set +e
-          PYTHONPATH=src timeout 10s xvfb-run -a dbus-run-session -- python3 -m rpmdrop
+          runuser -u rpmdrop-test -- env PYTHONPATH="$PWD/src" timeout 10s xvfb-run -a dbus-run-session -- python3 -m rpmdrop
           app_status=$?
           set -e
           test "$app_status" -eq 124
-          PYTHONPATH=src xvfb-run -a dbus-run-session -- python3 tests/gtk_smoke.py
+          runuser -u rpmdrop-test -- env PYTHONPATH="$PWD/src" xvfb-run -a dbus-run-session -- python3 tests/gtk_smoke.py
 
       - name: Verify RPM artifacts and optional Nautilus integration
         run: |
