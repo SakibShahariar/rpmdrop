@@ -9,7 +9,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from rpmdrop.application import RpmDropApplication, RpmDropWindow
+from rpmdrop.application import RpmDropApplication, RpmDropWindow, main as application_main
 from rpmdrop.dnf5 import TransactionItem, TransactionPreview
 from rpmdrop.package import PackageInfo, SignatureInfo
 
@@ -17,6 +17,11 @@ from rpmdrop.package import PackageInfo, SignatureInfo
 def main() -> None:
     print("gtk-smoke: starting", flush=True)
     Adw.init()
+    with patch("rpmdrop.application.os.geteuid", return_value=0):
+        with patch.object(RpmDropApplication, "run") as application_run:
+            assert application_main() == 1
+            application_run.assert_not_called()
+
     application = RpmDropApplication()
     application.register(None)
     window = RpmDropWindow(application=application)
