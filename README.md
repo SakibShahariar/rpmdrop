@@ -20,7 +20,7 @@ The application resolves local RPMs through `dnf5daemon-server` and displays the
 
 ## Initial scope
 
-The first milestone targets Fedora and other DNF5-based RPM systems. Repository browsing, updates, and general package management are intentionally out of scope.
+Fedora 44 is the first supported and CI-tested target. Other distributions may work if they provide GTK 4, libadwaita, RPM tooling, `dnf5daemon-server`, Python D-Bus bindings, and (for the Files action) `nautilus-python`, but they are not yet validated. Repository browsing, updates, and general package management are intentionally out of scope.
 
 ## Technology
 
