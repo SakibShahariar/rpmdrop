@@ -173,6 +173,20 @@ def execute_transaction(
             raise TransactionExecutionError(
                 "\n".join(problems) or "DNF5 could not revalidate the transaction."
             )
+        if int(result) not in (0, 1):
+            raise TransactionExecutionError(
+                f"DNF5 returned an unknown transaction status: {result}"
+            )
+        current_warnings = ()
+        if int(result) == 1:
+            current_warnings = tuple(
+                str(problem) for problem in goal.get_transaction_problems_string()
+            )
+        if current_warnings != preview.warnings:
+            raise TransactionExecutionError(
+                "DNF5 warnings changed since the preview. Review a new preview "
+                "before installing."
+            )
         current_items = _items_from_raw(raw_items)
         if current_items != preview.items:
             raise TransactionExecutionError(
