@@ -64,7 +64,7 @@ class HistoryStore:
         packages: tuple[str, ...] | list[str],
         details: str = "",
     ) -> None:
-        if status not in {"success", "failed", "cancelled"}:
+        if status not in {"success", "failed", "cancelled", "authorization-denied"}:
             raise ValueError(f"Unsupported operation status: {status}")
         package_list = tuple(str(package) for package in packages)
         with closing(self._connect()) as connection, connection:
@@ -113,3 +113,12 @@ class HistoryStore:
                 )
             )
         return tuple(records)
+
+
+    def clear(self) -> None:
+        """Remove all locally stored operation records."""
+        with closing(self._connect()) as connection:
+            connection.execute("DELETE FROM operations")
+            connection.commit()
+            connection.execute("VACUUM")
+            connection.commit()
