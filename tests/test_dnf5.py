@@ -259,3 +259,14 @@ def test_reports_download_byte_progress(tmp_path: Path):
     )
     download_handler("/session/1", "example.rpm", 100, 50)
     assert progress == [("Downloading example.rpm (50/100 bytes)", 0.5)]
+
+
+def test_empty_preview_cannot_be_executed():
+    preview = TransactionPreview(
+        package_path=Path("/tmp/empty.rpm"),
+        items=(),
+        warnings=("No package changes",),
+        session_path="/session/1",
+    )
+    with pytest.raises(TransactionExecutionError, match="no package changes"):
+        execute_transaction(preview)
