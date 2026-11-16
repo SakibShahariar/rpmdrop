@@ -188,3 +188,17 @@ def test_reports_dnf5_progress_fraction(tmp_path: Path):
     ]
     handlers[0]("/session/1", "example-2.0-3.fc44.x86_64", 2, 4)
     assert progress == [("Preparing example-2.0-3.fc44.x86_64 (2/4)", 0.5)]
+
+
+def test_refuses_execution_when_dnf5_warnings_change(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    items = [("package", "Install", "User", {}, make_package())]
+    fake = FakeDBus(items=items)
+    fake.goal.resolve.side_effect = [(items, 0), (items, 1)]
+    fake.goal.get_transaction_problems_string.return_value = ["New repository warning"]
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        with pytest.raises(TransactionExecutionError, match="warnings changed"):
+            execute_transaction(preview)
+    fake.goal.do_transaction.assert_not_called()
