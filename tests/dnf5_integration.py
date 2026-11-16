@@ -54,7 +54,7 @@ def main() -> None:
         finally:
             try:
                 close_session(preview)
-            except Exception as error:
+            except TransactionExecutionError as error:
                 errors.append(error)
             GLib.idle_add(loop.quit)
 
