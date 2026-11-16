@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import gi
 
-gi.require_version("Nautilus", "4.0")
+gi.require_version("Nautilus", "4.1")
 from gi.repository import Gio
 
 
