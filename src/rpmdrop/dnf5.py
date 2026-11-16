@@ -122,6 +122,13 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
     except TransactionResolutionError:
         raise
     except Exception as error:
+        message = str(error)
+        dbus_name = getattr(error, "get_dbus_name", lambda: "")()
+        if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown" or "ServiceUnknown" in message:
+            raise TransactionResolutionError(
+                "The DNF5 daemon is unavailable. Install the dnf5daemon-server package "
+                "and make sure its system D-Bus service is available."
+            ) from error
         raise TransactionResolutionError(
-            f"DNF5 transaction resolution failed: {error}"
+            f"DNF5 transaction resolution failed: {message}"
         ) from error
