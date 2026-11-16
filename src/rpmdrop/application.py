@@ -131,8 +131,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.requirements_group = Adw.PreferencesGroup(title="Dependencies and capabilities")
         self.requirements_group.set_visible(False)
         content.append(self.requirements_group)
-        self.requirements_row: Adw.ActionRow | None = None
-        self.provides_row: Adw.ActionRow | None = None
+        self.requirements_row: Adw.ExpanderRow | None = None
+        self.provides_row: Adw.ExpanderRow | None = None
 
         self.preview_button = Gtk.Button(label="Preview transaction")
         self.preview_button.add_css_class("suggested-action")
@@ -594,22 +594,31 @@ class RpmDropWindow(Adw.ApplicationWindow):
             if info.requirements_error
             else "\n".join(info.requirements) if info.requirements else "No requirements listed"
         )
-        self.requirements_row = Adw.ActionRow(
-            title=f"Requires ({len(info.requirements)})",
+        self.requirements_row = Adw.ExpanderRow(
+            title=f"Requires ({len(info.requirements)})"
+        )
+        requirements_details = Adw.ActionRow(
+            title="Declared requirements",
             subtitle=requirement_text,
         )
-        self.requirements_row.set_subtitle_selectable(True)
+        requirements_details.set_subtitle_selectable(True)
+        self.requirements_row.add_row(requirements_details)
         self.requirements_group.add(self.requirements_row)
+
         provides_text = (
             f"Could not read capabilities: {info.provides_error}"
             if info.provides_error
             else "\n".join(info.provides) if info.provides else "No capabilities listed"
         )
-        self.provides_row = Adw.ActionRow(
-            title=f"Provides ({len(info.provides)})",
+        self.provides_row = Adw.ExpanderRow(
+            title=f"Provides ({len(info.provides)})"
+        )
+        provides_details = Adw.ActionRow(
+            title="Declared capabilities",
             subtitle=provides_text,
         )
-        self.provides_row.set_subtitle_selectable(True)
+        provides_details.set_subtitle_selectable(True)
+        self.provides_row.add_row(provides_details)
         self.requirements_group.add(self.provides_row)
         self.details.set_visible(True)
         self.requirements_group.set_visible(True)
