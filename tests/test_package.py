@@ -175,3 +175,37 @@ def test_failed_signature_and_digest_checks_are_distinct(
 def test_reports_unavailable_signature_tool(_which, tmp_path):
     result = inspect_signature(tmp_path / "unknown.rpm")
     assert result.status == "unavailable"
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_verbose_rpm_output_requires_both_checks_to_pass(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess(
+        [],
+        0,
+        "Header V4 RSA/SHA256 Signature, key ID 1234: OK\n"
+        "Header SHA256 digest: OK\nPayload SHA256 digest: OK",
+        "",
+    )
+    result = inspect_signature(tmp_path / "verbose-signed.rpm")
+    assert result.status == "trusted"
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_signature_without_digest_success_is_indeterminate(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess(
+        [], 0, "Header V4 RSA/SHA256 Signature, key ID 1234: OK", ""
+    )
+    result = inspect_signature(tmp_path / "incomplete-check.rpm")
+    assert result.status == "indeterminate"
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_digest_only_verbose_output_is_unsigned(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess(
+        [], 0, "Header SHA256 digest: OK\nPayload SHA256 digest: OK", ""
+    )
+    result = inspect_signature(tmp_path / "unsigned.rpm")
+    assert result.status == "unsigned"
