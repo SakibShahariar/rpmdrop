@@ -18,8 +18,8 @@ from rpmdrop.dnf5 import (
     TransactionPreview,
     TransactionResolutionError,
     cancel_transaction,
-    close_session,
     classify_transaction_error,
+    close_session,
     execute_transaction,
     resolve_local_rpm,
 )
