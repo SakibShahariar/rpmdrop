@@ -12,8 +12,8 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from rpmdrop.dnf5 import TransactionPreview, TransactionResolutionError, resolve_local_rpm
-from rpmdrop.package import PackageInfo, PackageInspectionError, inspect_package
+from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    TransactionPreview,\n    TransactionResolutionError,\n    cancel_transaction,\n    execute_transaction,\n    resolve_local_rpm,\n)
+from rpmdrop.package import PackageInfo, PackageInspectionError, SignatureInfo, inspect_package
 
 
 class RpmDropWindow(Adw.ApplicationWindow):
@@ -304,6 +304,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         dialog = Gtk.Dialog(title="Transaction Preview", transient_for=self, modal=True)
         dialog.set_default_size(560, 440)
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        install_button = dialog.add_button("Install", Gtk.ResponseType.ACCEPT)
         content = dialog.get_content_area()
         content.set_spacing(12)
         content.set_margin_top(12)
@@ -326,7 +327,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             )
             lines.append(f"{item.action:<12} {nevra}  [{item.reason}]")
         if preview.warnings:
-            lines.extend(("", "Warnings:"))
+            lines.extend(("", "DNF5 warnings:"))
             lines.extend(f"- {warning}" for warning in preview.warnings)
 
         download_size = sum(item.download_size for item in preview.items)
@@ -335,9 +336,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             "",
             f"Packages in transaction: {len(preview.items)}",
             f"Download size (reported): {download_size:,} bytes",
-            f"Installed size (reported): {install_size:,} bytes",
-            "",
-            "Preview only. Installation is not available yet.",
+            f"Package install sizes (sum): {install_size:,} bytes",
         ))
 
         scroller = Gtk.ScrolledWindow()
@@ -350,6 +349,179 @@ class RpmDropWindow(Adw.ApplicationWindow):
         text_view.get_buffer().set_text("\n".join(lines))
         scroller.set_child(text_view)
         content.append(scroller)
+
+        status = self.current_signature.status if self.current_signature else "unavailable"
+        blocked = status in {
+            "digest-failed", "signature-failed", "verification-failed",
+            "indeterminate", "unavailable",
+        }
+        if self.current_signature is None:
+            trust_text = "Package verification information is missing. Installation is blocked."
+        else:
+            trust_text = self.current_signature.explanation
+        trust_label = Gtk.Label(label=trust_text)
+        trust_label.set_xalign(0)
+        trust_label.set_wrap(True)
+        trust_label.add_css_class("warning" if status in {"unsigned", "unknown-key"} else "dim-label")
+        content.append(trust_label)
+
+        if blocked:
+            acknowledgement_text = "Installation is blocked until package verification succeeds."
+        elif status in {"unsigned", "unknown-key"}:
+            acknowledgement_text = (
+                "I understand the package signature warning and still want to install."
+            )
+        else:
+            acknowledgement_text = "I reviewed this transaction and want to install these packages."
+        acknowledgement = Gtk.CheckButton(label=acknowledgement_text)
+        acknowledgement.set_sensitive(not blocked)
+        content.append(acknowledgement)
+        install_button.set_sensitive(False)
+        acknowledgement.connect(
+            "toggled",
+            lambda check: install_button.set_sensitive(
+                not blocked and check.get_active()
+            ),
+        )
+        dialog.connect(
+            "response",
+            self._on_preview_response,
+            preview,
+            acknowledgement,
+            blocked,
+        )
+        dialog.present()
+
+    def _on_preview_response(
+        self,
+        dialog: Gtk.Dialog,
+        response: int,
+        preview: TransactionPreview,
+        acknowledgement: Gtk.CheckButton,
+        blocked: bool,
+    ) -> None:
+        if response == Gtk.ResponseType.ACCEPT and not blocked and acknowledgement.get_active():
+            dialog.destroy()
+            self._start_installation(preview)
+            return
+        dialog.destroy()
+
+    def _start_installation(self, preview: TransactionPreview) -> None:
+        self._active_preview = preview
+        dialog = Gtk.Dialog(title="Installing packages", transient_for=self, modal=True)
+        dialog.set_default_size(460, 180)
+        self._install_cancel_button = dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.set_margin_top(20)
+        content.set_margin_bottom(20)
+        content.set_margin_start(20)
+        content.set_margin_end(20)
+
+        self._install_spinner = Gtk.Spinner()
+        self._install_spinner.start()
+        content.append(self._install_spinner)
+        self._install_status = Gtk.Label(label="Requesting authorization and preparing installation…")
+        self._install_status.set_wrap(True)
+        self._install_status.set_xalign(0)
+        content.append(self._install_status)
+        dialog.connect("response", self._on_install_cancel)
+        self._install_dialog = dialog
+        self.open_button.set_sensitive(False)
+        self.preview_button.set_sensitive(False)
+        dialog.present()
+
+        threading.Thread(
+            target=self._install_in_background,
+            args=(preview,),
+            daemon=True,
+        ).start()
+
+    def _install_in_background(self, preview: TransactionPreview) -> None:
+        error: str | None = None
+        try:
+            execute_transaction(
+                preview,
+                progress_callback=lambda message: GLib.idle_add(
+                    self._set_install_status, message
+                ),
+            )
+        except TransactionExecutionError as execution_error:
+            error = str(execution_error)
+        GLib.idle_add(self._installation_finished, error)
+
+    def _set_install_status(self, message: str) -> bool:
+        if self._install_status is not None:
+            self._install_status.set_text(message)
+        return GLib.SOURCE_REMOVE
+
+    def _on_install_cancel(self, _dialog: Gtk.Dialog, response: int) -> None:
+        if response != Gtk.ResponseType.CANCEL or self._active_preview is None:
+            return
+        if self._install_cancel_button is not None:
+            self._install_cancel_button.set_sensitive(False)
+        self._set_install_status("Requesting cancellation. DNF5 can cancel during download; the RPM transaction itself may not be cancellable.")
+        threading.Thread(
+            target=self._cancel_install_in_background,
+            args=(self._active_preview,),
+            daemon=True,
+        ).start()
+
+    def _cancel_install_in_background(self, preview: TransactionPreview) -> None:
+        try:
+            success, message = cancel_transaction(preview)
+            status = (
+                "Cancellation requested. Waiting for DNF5 to finish…"
+                if success else f"DNF5 could not cancel: {message}"
+            )
+        except TransactionExecutionError as error:
+            status = str(error)
+        GLib.idle_add(self._set_install_status, status)
+        if self._install_cancel_button is not None and "could not cancel" in status.lower():
+            GLib.idle_add(self._install_cancel_button.set_sensitive, True)
+
+    def _installation_finished(self, error: str | None) -> bool:
+        if self._install_spinner is not None:
+            self._install_spinner.stop()
+        if self._install_dialog is not None:
+            self._install_dialog.destroy()
+        self._install_dialog = None
+        self._install_status = None
+        self._install_spinner = None
+        self._install_cancel_button = None
+        self._active_preview = None
+        self.open_button.set_sensitive(True)
+        self.preview_button.set_sensitive(True)
+        if error is None:
+            self.status.set_text("Installation completed successfully.")
+            self._show_install_result(
+                "Installation completed",
+                "The DNF5 daemon confirmed that the package transaction completed.",
+                False,
+            )
+        else:
+            self.status.set_text("Installation did not complete.")
+            self._show_install_result("Installation failed", error, True)
+        return GLib.SOURCE_REMOVE
+
+    def _show_install_result(self, title: str, message: str, is_error: bool) -> None:
+        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.set_margin_top(20)
+        content.set_margin_bottom(20)
+        content.set_margin_start(20)
+        content.set_margin_end(20)
+        icon = Gtk.Image.new_from_icon_name(
+            "dialog-error-symbolic" if is_error else "emblem-ok-symbolic"
+        )
+        icon.set_pixel_size(40)
+        content.append(icon)
+        label = Gtk.Label(label=message)
+        label.set_wrap(True)
+        label.set_xalign(0)
+        content.append(label)
         dialog.connect("response", lambda window, _response: window.destroy())
         dialog.present()
 
