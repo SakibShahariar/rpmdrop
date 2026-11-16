@@ -35,3 +35,4 @@ ignore = ["E402"]
 
 [tool.setuptools.data-files]
 "share/applications" = ["data/io.github.sakibshahariar.RpmDrop.desktop"]
+"share/nautilus-python/extensions" = ["data/nautilus-rpmdrop.py"]
