@@ -102,6 +102,8 @@ jobs:
           test -n "$nautilus_rpm"
           rpm -qpl "$rpm_file"
           rpm -qpl "$nautilus_rpm"
+          rpm -qp --requires "$nautilus_rpm"
+          rpm -qp --requires "$nautilus_rpm" | grep -Fx "nautilus-python"
           dnf install -y "$rpm_file" "$nautilus_rpm"
           rpm -q rpmdrop rpmdrop-nautilus
           command -v rpmdrop
