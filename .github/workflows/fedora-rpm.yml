@@ -68,9 +68,22 @@ jobs:
           if [ ! -S /run/dbus/system_bus_socket ]; then
             dbus-daemon --system --fork --nopidfile
           fi
+          dnf5daemon-server >/tmp/dnf5daemon-server.log 2>&1 &
+          daemon_pid=$!
+          for attempt in $(seq 1 20); do
+            if busctl --system list | grep -q "org.rpm.dnf.v0"; then
+              break
+            fi
+            sleep 0.5
+          done
+          if ! busctl --system list | grep -q "org.rpm.dnf.v0"; then
+            cat /tmp/dnf5daemon-server.log
+            exit 1
+          fi
           smoke_rpm=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-dbus-smoke-1.0-1*.noarch.rpm" -print -quit)
           test -n "$smoke_rpm"
           python3 tests/dnf5_integration.py "$smoke_rpm"
+          kill "$daemon_pid" || true
 
       - name: Smoke-test GTK application startup
         run: |
