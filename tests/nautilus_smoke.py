@@ -64,8 +64,8 @@ def main() -> None:
     fake_gio = SimpleNamespace(
         AppInfo=SimpleNamespace(
             create_from_commandline=MagicMock(return_value=app_info),
-            AppInfoCreateFlags=Gio.AppInfoCreateFlags,
-        )
+        ),
+        AppInfoCreateFlags=Gio.AppInfoCreateFlags,
     )
     original_gio = module.Gio
     module.Gio = fake_gio
