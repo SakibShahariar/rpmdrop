@@ -12,7 +12,14 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from rpmdrop.dnf5 import (\n    TransactionExecutionError,\n    TransactionPreview,\n    TransactionResolutionError,\n    cancel_transaction,\n    execute_transaction,\n    resolve_local_rpm,\n)
+from rpmdrop.dnf5 import (
+    TransactionExecutionError,
+    TransactionPreview,
+    TransactionResolutionError,
+    cancel_transaction,
+    execute_transaction,
+    resolve_local_rpm,
+)
 from rpmdrop.package import PackageInfo, PackageInspectionError, SignatureInfo, inspect_package
 
 
