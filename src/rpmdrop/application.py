@@ -362,12 +362,11 @@ class RpmDropWindow(Adw.ApplicationWindow):
             ("Vendor", info.vendor),
             ("Packager", info.packager),
             ("License", info.license),
-            ("Signature verification", info.signature),
             ("File", str(info.path)),
         ):
             self._add_row(title, value)
 
-        requirement_text = "\n".join(info.requirements) if info.requirements else "No requirements listed"
+        self._add_row("Signature verification", info.signature.summary)\n        self._add_row("Verification details", info.signature.explanation)\n\n        requirement_text = "\n".join(info.requirements) if info.requirements else "No requirements listed"
         self.requirements_row = Adw.ActionRow(
             title=f"Requires ({len(info.requirements)})",
             subtitle=requirement_text,
