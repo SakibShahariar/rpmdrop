@@ -214,7 +214,9 @@ def test_reports_failed_rpm_transaction_completion(tmp_path: Path):
         completed("/session/1", False)
 
     fake.goal.do_transaction.side_effect = fail_transaction
-    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionExecutionError, match="did not complete"),
+    ):
         preview = resolve_local_rpm(rpm_file)
-        with pytest.raises(TransactionExecutionError, match="did not complete"):
-            execute_transaction(preview, progress_callback=lambda _message, _fraction: None)
+        execute_transaction(preview, progress_callback=lambda _message, _fraction: None)
