@@ -102,8 +102,12 @@ jobs:
           test -n "$nautilus_rpm"
           rpm -qpl "$rpm_file"
           rpm -qpl "$nautilus_rpm"
-          rpm -qp --requires "$nautilus_rpm"
-          rpm -qp --requires "$nautilus_rpm" | grep -Fx "nautilus-python"
+          rpm -qp --requires "$rpm_file" | tee /tmp/rpmdrop-requires.txt
+          for dependency in gtk4 libadwaita python3-gobject python3-dbus rpm dnf5daemon-server; do
+            grep -Fx "$dependency" /tmp/rpmdrop-requires.txt
+          done
+          rpm -qp --requires "$nautilus_rpm" | tee /tmp/rpmdrop-nautilus-requires.txt
+          grep -Fx "nautilus-python" /tmp/rpmdrop-nautilus-requires.txt
           dnf install -y "$rpm_file" "$nautilus_rpm"
           rpm -q rpmdrop rpmdrop-nautilus
           command -v rpmdrop
