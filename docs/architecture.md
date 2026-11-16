@@ -3,7 +3,7 @@
 RpmDrop separates its GTK interface from system-tool adapters.
 
 - **Application/UI** (`rpmdrop.application`): file selection, package details, transaction preview, explicit installation acknowledgement, progress, cancellation, and result states. It never runs as root.
-- **Nautilus integration** (`data/nautilus-rpmdrop.py`): a file-manager menu provider that passes selected local RPM files to the unprivileged application through Gio.
+- **Optional Nautilus integration** (`data/nautilus-rpmdrop.py`, packaged as `rpmdrop-nautilus`): a file-manager menu provider that passes selected local RPM files to the unprivileged application through Gio. It can be removed without removing the main application.
 - **Package inspection** (`rpmdrop.package`): read-only metadata and signature inspection through RPM tooling. It never installs or modifies packages.
 - **Transaction backend** (`rpmdrop.dnf5`): DNF5 daemon D-Bus integration for local RPM goal creation, dependency resolution, structured preview, revalidation, execution, progress signals, and cancellation.
 
@@ -25,7 +25,7 @@ RpmDrop separates its GTK interface from system-tool adapters.
 1. Local RPM inspection and signature reporting — implemented.
 2. DNF5 transaction resolution and structured preview — implemented; requires real-system validation.
 3. Explicitly confirmed installation, transaction revalidation, progress, and download-phase cancellation — implemented; requires real-system validation.
-4. Desktop file association and Nautilus context action — implemented; Fedora RPM build/install/removal is covered by CI.
+4. Desktop file association and optional Nautilus context action — implemented; Fedora CI tests independent extension removal and full application removal.
 5. Private local operation history (last 100 results) — implemented; richer real-system transaction tests remain planned.
 
 The application and RPM package build in Fedora 44 CI. Automated tests cover package metadata, signature classifications, DNF5 goal resolution/revalidation, transaction execution boundaries, progress conversion, cancellation requests, and package installation/removal. Fedora CI also starts the real DNF5 daemon and resolves a minimal local RPM without executing it. Manual validation of a real package installation with the desktop Polkit authentication agent is still required before calling the installer production-ready.
