@@ -460,7 +460,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         try:
             execute_transaction(
                 preview,
-                progress_callback=lambda message: GLib.idle_add(
+                progress_callback=lambda message, fraction: GLib.idle_add(
                     self._set_install_status, message, fraction
                 ),
             )
