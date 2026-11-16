@@ -14,6 +14,14 @@ class PackageInspectionError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class SignatureInfo:
+    status: str
+    summary: str
+    explanation: str
+    details: str
+
+
+@dataclass(frozen=True, slots=True)
 class PackageInfo:
     path: Path
     name: str
@@ -91,22 +99,82 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
     )
 
 
-def inspect_signature(package_path: Path) -> str:
-    """Report digest and signature results without overstating package trust."""
+def inspect_signature(package_path: Path) -> SignatureInfo:
+    """Classify RPM digest integrity separately from signing-key trust."""
     tool = shutil.which("rpmkeys") or shutil.which("rpm")
     if tool is None:
-        return "Could not verify: rpmkeys is unavailable"
+        return SignatureInfo(
+            "unavailable",
+            "Signature verification unavailable",
+            "Install the RPM tooling to check package signatures and digests.",
+            "",
+        )
 
-    result = _run([tool, "--checksig", "--verbose", str(package_path)])
+    try:
+        result = _run([tool, "--checksig", "--verbose", str(package_path)])
+    except PackageInspectionError as error:
+        return SignatureInfo(
+            "unavailable",
+            "Signature verification unavailable",
+            str(error),
+            "",
+        )
+
     output = (result.stdout + result.stderr).strip()
     lowered = output.lower()
 
+    if "nokey" in lowered or "not trusted" in lowered or "nottrusted" in lowered:
+        return SignatureInfo(
+            "unknown-key",
+            "Signed with an unknown or untrusted key",
+            "The signing key is missing or not trusted by the RPM key database. Verify "
+            "the publisher and key fingerprint independently before considering installation.",
+            output,
+        )
+    if any(marker in lowered for marker in (
+        "bad signature", "signatures not ok", "signature not ok",
+        "signature verification failed",
+    )):
+        return SignatureInfo(
+            "signature-failed",
+            "Package signature verification failed",
+            "The cryptographic signature did not verify. Do not install this package.",
+            output,
+        )
+    if any(marker in lowered for marker in (
+        "bad digest", "digests not ok", "digest not ok", "digest verification failed",
+    )):
+        return SignatureInfo(
+            "digest-failed",
+            "Package digest verification failed",
+            "The package contents may be corrupted or altered. Do not install this package.",
+            output,
+        )
     if result.returncode != 0:
-        return f"Verification failed: {output or 'signature check returned an error'}"
-    if "nokey" in lowered or "not trusted" in lowered:
-        return f"Signing key is not trusted or unavailable: {output}"
-    if "digests signatures ok" in lowered or "signatures ok" in lowered:
-        return f"Signature and digest checks passed: {output}"
-    if "digests ok" in lowered:
-        return f"Package digests passed; no trusted signature was confirmed: {output}"
-    return f"Verification result requires review: {output or 'no details returned'}"
+        return SignatureInfo(
+            "verification-failed",
+            "RPM verification failed",
+            "RPM could not complete verification. Treat this package as unverified.",
+            output or "rpmkeys returned an error without details.",
+        )
+    if "digests signatures ok" in lowered or "digests signature ok" in lowered:
+        return SignatureInfo(
+            "trusted",
+            "Signature verified with a trusted key",
+            "The package signature and file digests both passed verification.",
+            output,
+        )
+    if "digests ok" in lowered and "signature" not in lowered:
+        return SignatureInfo(
+            "unsigned",
+            "Unsigned package",
+            "The file digests passed, but no cryptographic signature was confirmed. "
+            "Digest integrity does not establish who published the package.",
+            output,
+        )
+    return SignatureInfo(
+        "indeterminate",
+        "Signature status could not be determined",
+        "RPM returned an ambiguous verification result. Treat this package as unverified.",
+        output or "No verification details were returned.",
+    )
