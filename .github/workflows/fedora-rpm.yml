@@ -18,7 +18,7 @@ jobs:
         run: |
           dnf install -y git rpm-build python3-devel python3-setuptools \
             pyproject-rpm-macros desktop-file-utils python3-pytest python3-ruff \
-            gtk4 libadwaita python3-gobject python3-dbus dbus-daemon xorg-x11-server-Xvfb
+            gtk4 libadwaita python3-gobject python3-dbus dnf5daemon-server dbus-daemon xorg-x11-server-Xvfb
 
       - name: Check out repository
         uses: actions/checkout@v4
