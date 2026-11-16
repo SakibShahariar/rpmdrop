@@ -26,7 +26,8 @@ The daemon may be D-Bus activated on first use, so an empty result before activa
 - [ ] Open a valid local RPM with **Open RPM**.
 - [ ] Drag a local RPM onto the welcome area.
 - [ ] Open an RPM through GNOME Files **Open With**.
-- [ ] Select multiple RPM files in Files and use **Inspect with RpmDrop**.\n- [ ] Remove `rpmdrop-nautilus` while keeping `rpmdrop` installed; verify the context action disappears. Reinstall it and verify the action returns.
+- [ ] Select multiple RPM files in Files and use **Inspect with RpmDrop**.
+- [ ] Remove `rpmdrop-nautilus` while keeping `rpmdrop` installed; verify the context action disappears. Reinstall it and verify the action returns.
 - [ ] Confirm package metadata, declared requirements, and signature classification.
 - [ ] Resolve a local RPM and verify that the transaction preview includes all dependencies, actions, architectures, versions, and reported sizes.
 - [ ] Close the preview and confirm that no package was installed or removed.
