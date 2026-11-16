@@ -62,7 +62,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahar
 
 %files nautilus
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
-%exclude %{_datadir}/nautilus-python/extensions/__pycache__/*
 
 %changelog
 * Mon Nov 16 2026 Sakib Shahariar Shimanto <sakibshahariar@users.noreply.github.com> - 0.1.0-1
