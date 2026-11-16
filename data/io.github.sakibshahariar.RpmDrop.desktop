@@ -5,6 +5,6 @@ Exec=rpmdrop %F
 Icon=package-x-generic
 Terminal=false
 Type=Application
-Categories=System;Utility;
+Categories=System;
 MimeType=application/x-rpm;
 StartupNotify=true
