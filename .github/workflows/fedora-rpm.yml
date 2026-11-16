@@ -17,7 +17,7 @@ jobs:
       - name: Install RPM build dependencies
         run: |
           dnf install -y git rpm-build python3-devel python3-setuptools \
-            pyproject-rpm-macros desktop-file-utils
+            pyproject-rpm-macros desktop-file-utils python3-pytest python3-ruff
 
       - name: Check out repository
         uses: actions/checkout@v4
@@ -34,6 +34,13 @@ jobs:
           rpmbuild -ba "$HOME/rpmbuild/SPECS/rpmdrop.spec" \
             --define "_topdir $HOME/rpmbuild"
 
+      - name: Run tests and lint in Fedora
+        run: |
+          python3 -m pytest -q
+          ruff check .
+
       - name: Verify RPM artifact
         run: |
-          rpm -qpl "$HOME/rpmbuild/RPMS/noarch/rpmdrop-0.1.0-1*.noarch.rpm"
+          rpm_file=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-0.1.0-1*.noarch.rpm" -print -quit)
+          test -n "$rpm_file"
+          rpm -qpl "$rpm_file"
