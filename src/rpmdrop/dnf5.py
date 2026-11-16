@@ -237,6 +237,23 @@ def execute_transaction(
             def action_started(_session, nevra, _action, _total):
                 progress_callback(f"Starting package action: {nevra}", None)
 
+            def download_progress(_session, download_id, total, downloaded):
+                fraction = None
+                if int(total) > 0:
+                    fraction = max(0.0, min(1.0, int(downloaded) / int(total)))
+                progress_callback(
+                    f"Downloading {download_id} ({downloaded}/{total} bytes)",
+                    fraction,
+                )
+
+            bus.add_signal_receiver(
+                download_progress,
+                signal_name="download_progress",
+                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                path=preview.session_path,
+            )
+            receivers.append(download_progress)
+
             bus.add_signal_receiver(
                 action_started,
                 signal_name="transaction_action_start",
@@ -295,4 +312,23 @@ def cancel_transaction(preview: TransactionPreview) -> tuple[bool, str]:
     except Exception as error:
         raise TransactionExecutionError(
             f"Could not cancel the DNF5 transaction: {error}"
+        ) from error
+
+
+
+def close_session(preview: TransactionPreview) -> bool:
+    """Release a DNF5 daemon session after preview cancellation or completion."""
+    dbus = _dbus_module()
+    try:
+        bus_name = "org.rpm.dnf.v0"
+        object_path = "/" + bus_name.replace(".", "/")
+        bus = dbus.SystemBus()
+        manager = dbus.Interface(
+            bus.get_object(bus_name, object_path),
+            dbus_interface=f"{bus_name}.SessionManager",
+        )
+        return bool(manager.close_session(preview.session_path))
+    except Exception as error:
+        raise TransactionExecutionError(
+            f"Could not close the DNF5 session: {error}"
         ) from error
