@@ -140,7 +140,7 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
         return TransactionPreview(path, items, warnings, str(session_path))
     except TransactionResolutionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - D-Bus exposes backend-specific exception types.
         message = str(error)
         dbus_name = getattr(error, "get_dbus_name", lambda: "")()
         if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown" or "ServiceUnknown" in message:
@@ -204,7 +204,7 @@ def execute_transaction(
         )
     except TransactionExecutionError:
         raise
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - normalize D-Bus and Polkit failures.
         raise TransactionExecutionError(
             f"DNF5 installation failed: {error}"
         ) from error
@@ -217,7 +217,7 @@ def execute_transaction(
                         dbus_interface="org.rpm.dnf.v0.SessionManager",
                         path=preview.session_path,
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - signal cleanup must not mask transaction results.
                     pass
 
 
@@ -228,7 +228,7 @@ def cancel_transaction(preview: TransactionPreview) -> tuple[bool, str]:
         _bus, goal = _goal_for_session(dbus, preview.session_path)
         success, message = goal.cancel()
         return bool(success), str(message)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - normalize D-Bus cancellation failures.
         raise TransactionExecutionError(
             f"Could not cancel the DNF5 transaction: {error}"
         ) from error
