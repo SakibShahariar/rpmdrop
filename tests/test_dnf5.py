@@ -169,3 +169,22 @@ def test_cancel_requests_dnf5_goal_cancellation(tmp_path: Path):
         preview = resolve_local_rpm(rpm_file)
         result = cancel_transaction(preview)
     assert result == (True, "")
+
+
+def test_reports_dnf5_progress_fraction(tmp_path: Path):
+    rpm_file = tmp_path / "example.rpm"
+    rpm_file.write_bytes(b"rpm")
+    fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+    progress = []
+    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
+        preview = resolve_local_rpm(rpm_file)
+        execute_transaction(
+            preview,
+            progress_callback=lambda message, fraction: progress.append((message, fraction)),
+        )
+
+    handlers = [
+        call.args[0] for call in fake.bus.add_signal_receiver.call_args_list
+    ]
+    handlers[0]("/session/1", "example-2.0-3.fc44.x86_64", 2, 4)
+    assert progress == [("Preparing example-2.0-3.fc44.x86_64 (2/4)", 0.5)]
