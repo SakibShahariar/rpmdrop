@@ -36,6 +36,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.set_title("RpmDrop")
         self.set_default_size(680, 600)
         self.set_size_request(480, 420)
+        self.set_resizable(True)
 
         self._pending_paths: list[str] = []
         self._inspection_active = False
@@ -206,6 +207,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
     def _on_history_clicked(self, _button: Gtk.Button) -> None:
         dialog = Gtk.Dialog(title="RpmDrop History", transient_for=self, modal=True)
         dialog.set_default_size(600, 440)
+        dialog.set_resizable(True)
         dialog.add_button("Clear History", Gtk.ResponseType.APPLY)
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         content = dialog.get_content_area()
@@ -229,14 +231,19 @@ class RpmDropWindow(Adw.ApplicationWindow):
         else:
             message = "No RpmDrop-initiated package operations have been recorded yet."
 
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        scroller.set_min_content_height(180)
         if not records:
             empty = Gtk.Label(label=message)
             empty.set_wrap(True)
             empty.set_xalign(0)
-            content.append(empty)
+            empty.set_margin_top(12)
+            empty.set_margin_bottom(12)
+            empty.set_margin_start(12)
+            empty.set_margin_end(12)
+            scroller.set_child(empty)
         else:
-            scroller = Gtk.ScrolledWindow()
-            scroller.set_vexpand(True)
             rows = Gtk.ListBox()
             rows.set_selection_mode(Gtk.SelectionMode.NONE)
             for record in records:
@@ -252,7 +259,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 row.set_subtitle_selectable(True)
                 rows.append(row)
             scroller.set_child(rows)
-            content.append(scroller)
+        content.append(scroller)
 
         dialog.connect("response", self._on_history_response)
         dialog.present()
@@ -410,6 +417,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
     def _show_transaction_preview(self, preview: TransactionPreview) -> None:
         dialog = Gtk.Dialog(title="Transaction Preview", transient_for=self, modal=True)
         dialog.set_default_size(560, 440)
+        dialog.set_resizable(True)
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         install_button = dialog.add_button("Install", Gtk.ResponseType.ACCEPT)
         content = dialog.get_content_area()
@@ -574,6 +582,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._cancel_confirmed = False
         dialog = Gtk.Dialog(title="Installing packages", transient_for=self, modal=True)
         dialog.set_default_size(460, 180)
+        dialog.set_resizable(True)
         dialog.set_deletable(False)
         self._install_cancel_button = dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         content = dialog.get_content_area()
@@ -718,6 +727,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
 
     def _show_install_result(self, title: str, message: str, is_error: bool) -> None:
         dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.set_default_size(560, 360)
+        dialog.set_resizable(True)
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         content = dialog.get_content_area()
         content.set_spacing(12)
@@ -730,10 +741,16 @@ class RpmDropWindow(Adw.ApplicationWindow):
         )
         icon.set_pixel_size(40)
         content.append(icon)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        scroller.set_min_content_height(120)
         label = Gtk.Label(label=message)
         label.set_wrap(True)
+        label.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         label.set_xalign(0)
-        content.append(label)
+        label.set_selectable(True)
+        scroller.set_child(label)
+        content.append(scroller)
         dialog.connect("response", lambda window, _response: window.destroy())
         dialog.present()
 
