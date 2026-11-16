@@ -37,6 +37,7 @@ def test_parses_package_metadata_and_requirements(mock_run, _which, tmp_path: Pa
     mock_run.side_effect = [
         subprocess.CompletedProcess([], 0, metadata, ""),
         subprocess.CompletedProcess([], 0, "glibc\npython(abi) = 3.12\n", ""),
+        subprocess.CompletedProcess([], 0, "sample = 1.2.3-4.fc44\npython3.12dist(sample)\n", ""),
     ]
     with patch(
         "rpmdrop.package.inspect_signature",
@@ -48,6 +49,7 @@ def test_parses_package_metadata_and_requirements(mock_run, _which, tmp_path: Pa
     assert info.architecture == "x86_64"
     assert "multiple lines" in info.description
     assert info.requirements == ("glibc", "python(abi) = 3.12")
+    assert info.provides == ("sample = 1.2.3-4.fc44", "python3.12dist(sample)")
 
 
 @patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpm")
@@ -124,3 +126,39 @@ def test_failed_signature_and_digest_checks_are_distinct(
 def test_reports_unavailable_signature_tool(_which, tmp_path):
     result = inspect_signature(tmp_path / "unknown.rpm")
     assert result.status == "unavailable"
+
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpm")
+@patch("rpmdrop.package._run")
+def test_reports_provides_query_errors(mock_run, _which, tmp_path: Path):
+    rpm_file = tmp_path / "broken.rpm"
+    rpm_file.write_bytes(b"broken")
+    metadata = "sample\x1f1\x1f1\x1fx86_64\x1fsummary\x1fdescription\x1fvendor\x1fpackager\x1fMIT"
+    mock_run.side_effect = [
+        subprocess.CompletedProcess([], 0, metadata, ""),
+        subprocess.CompletedProcess([], 0, "glibc\n", ""),
+        subprocess.CompletedProcess([], 1, "", "cannot read provides"),
+    ]
+    with pytest.raises(PackageInspectionError, match="cannot read provides"):
+        inspect_package(rpm_file)
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpm")
+@patch("rpmdrop.package._run")
+def test_accepts_empty_requirements_and_provides(mock_run, _which, tmp_path: Path):
+    rpm_file = tmp_path / "minimal.rpm"
+    rpm_file.write_bytes(b"rpm")
+    metadata = "minimal\x1f1\x1f1\x1fx86_64\x1fsummary\x1fdescription\x1fvendor\x1fpackager\x1fMIT"
+    mock_run.side_effect = [
+        subprocess.CompletedProcess([], 0, metadata, ""),
+        subprocess.CompletedProcess([], 0, "", ""),
+        subprocess.CompletedProcess([], 0, "", ""),
+    ]
+    with patch(
+        "rpmdrop.package.inspect_signature",
+        return_value=SignatureInfo("unsigned", "Unsigned", "Not signed.", ""),
+    ):
+        info = inspect_package(rpm_file)
+    assert info.requirements == ()
+    assert info.provides == ()
