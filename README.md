@@ -9,7 +9,7 @@ RpmDrop is a focused local-package installer for Fedora and other DNF5-based RPM
 - Open local RPM files from the application, desktop **Open With**, or the Nautilus **Inspect with RpmDrop** context-menu action (including multiple selected RPM files).
 - Inspect package metadata, including version, architecture, vendor, packager, license, summary, and description.
 - Review the package's declared RPM requirements.
-- See signature and digest verification results without treating unknown signing keys as trusted.
+- See distinct trusted, unsigned, unknown-key, digest-failure, signature-failure, and unavailable verification states with explanations.
 - Keep the GTK interface responsive while package inspection runs in the background.
 - Queue multiple files opened together and inspect them one at a time.
 
@@ -24,7 +24,7 @@ The first milestone targets Fedora and other DNF5-based RPM systems. Repository 
 - Python and PyGObject
 - GTK 4 and libadwaita
 - RPM tooling for read-only package inspection
-- DNF5 for the planned transaction backend
+- DNF5 daemon D-Bus API for transaction resolution and preview
 - Polkit or the supported DNF5 system service for the planned privilege boundary
 
 ## Development
@@ -41,8 +41,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development expectations, [docs/archi
 
 ## Status
 
-Early development. Package inspection is implemented, but installation and transaction behavior must be validated on a real DNF5 system before RpmDrop can be considered a usable package installer.
+Early development. Package inspection and DNF5 transaction preview are implemented. Actual package installation is not yet implemented, and the preview flow still needs validation against a real Fedora DNF5 daemon.
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+GPL-3.0-or-later. See the [license text](https://spdx.org/licenses/GPL-3.0-or-later.html).
