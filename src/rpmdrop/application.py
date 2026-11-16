@@ -640,16 +640,12 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 if success else f"DNF5 could not cancel: {message}"
             )
             if success:
-                GLib.idle_add(self._mark_cancel_confirmed)
+                self._cancel_confirmed = True
         except TransactionExecutionError as error:
             status = str(error)
         GLib.idle_add(self._set_install_status, status)
         if self._install_cancel_button is not None and "could not cancel" in status.lower():
             GLib.idle_add(self._install_cancel_button.set_sensitive, True)
-
-    def _mark_cancel_confirmed(self) -> bool:
-        self._cancel_confirmed = True
-        return GLib.SOURCE_REMOVE
 
     def _installation_finished(self, error: str | None) -> bool:
         preview = self._active_preview
