@@ -817,6 +817,9 @@ class RpmDropApplication(Adw.Application):
 
 
 def main() -> int:
+    if os.geteuid() == 0:
+        print("RpmDrop must be run as an unprivileged user; DNF5 handles authorization.", file=sys.stderr)
+        return 1
     try:
         from dbus.mainloop.glib import DBusGMainLoop
 
