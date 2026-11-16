@@ -58,9 +58,11 @@ def test_requires_existing_rpm_file(tmp_path: Path):
 def test_reports_missing_python_dbus(tmp_path: Path):
     rpm = tmp_path / "example.rpm"
     rpm.write_bytes(b"rpm")
-    with patch("rpmdrop.dnf5._dbus_module", side_effect=TransactionResolutionError("missing")):
-        with pytest.raises(TransactionResolutionError, match="missing"):
-            resolve_local_rpm(rpm)
+    with (
+        patch("rpmdrop.dnf5._dbus_module", side_effect=TransactionResolutionError("missing")),
+        pytest.raises(TransactionResolutionError, match="missing"),
+    ):
+        resolve_local_rpm(rpm)
 
 
 def test_returns_structured_transaction_without_executing(tmp_path: Path):
@@ -87,9 +89,11 @@ def test_reports_solver_problems(tmp_path: Path):
     rpm_file = tmp_path / "example.rpm"
     rpm_file.write_bytes(b"rpm")
     fake = FakeDBus(result=2, problems=["Unsatisfied dependency: missing-lib"])
-    with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
-        with pytest.raises(TransactionResolutionError, match="missing-lib"):
-            resolve_local_rpm(rpm_file)
+    with (
+        patch("rpmdrop.dnf5._dbus_module", return_value=fake),
+        pytest.raises(TransactionResolutionError, match="missing-lib"),
+    ):
+        resolve_local_rpm(rpm_file)
 
 
 def test_preserves_solver_warnings(tmp_path: Path):
