@@ -36,6 +36,8 @@ class PackageInfo:
     signature: str
     requirements: tuple[str, ...]
     provides: tuple[str, ...]
+    requirements_error: str | None
+    provides_error: str | None
 
 
 _SEPARATOR = "\x1f"
@@ -81,22 +83,32 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
         raise PackageInspectionError("The RPM returned incomplete package metadata.")
 
     requirements_result = _run([rpm, "-qp", "--requires", str(path)])
+    requirements_error = None
     if requirements_result.returncode != 0:
-        raise PackageInspectionError(
-            requirements_result.stderr.strip() or "rpm could not read package requirements."
+        requirements = ()
+        requirements_error = (
+            requirements_result.stderr.strip() or "Could not read package requirements."
         )
-    requirements = tuple(
-        line.strip() for line in requirements_result.stdout.splitlines() if line.strip()
-    )
+    else:
+        requirements = tuple(
+            line.strip()
+            for line in requirements_result.stdout.splitlines()
+            if line.strip()
+        )
 
     provides_result = _run([rpm, "-qp", "--provides", str(path)])
+    provides_error = None
     if provides_result.returncode != 0:
-        raise PackageInspectionError(
-            provides_result.stderr.strip() or "rpm could not read package capabilities."
+        provides = ()
+        provides_error = (
+            provides_result.stderr.strip() or "Could not read package capabilities."
         )
-    provides = tuple(
-        line.strip() for line in provides_result.stdout.splitlines() if line.strip()
-    )
+    else:
+        provides = tuple(
+            line.strip()
+            for line in provides_result.stdout.splitlines()
+            if line.strip()
+        )
 
     return PackageInfo(
         path=path, name=fields[0] or "Unknown", version=fields[1] or "Unknown",
@@ -107,6 +119,8 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
         license=fields[8] or "Unknown", signature=inspect_signature(path),
         requirements=requirements,
         provides=provides,
+        requirements_error=requirements_error,
+        provides_error=provides_error,
     )
 
 
