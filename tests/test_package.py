@@ -8,6 +8,7 @@ from rpmdrop.package import (
     PackageInspectionError,
     SignatureInfo,
     inspect_package,
+    inspect_signature,
 )
 
 
@@ -121,3 +122,56 @@ def test_accepts_empty_requirements_and_provides(mock_run, _which, tmp_path: Pat
         info = inspect_package(rpm_file)
     assert info.requirements == ()
     assert info.provides == ()
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_unsigned_package_is_distinguished_from_trusted(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess([], 0, "digests OK", "")
+    result = inspect_signature(tmp_path / "unsigned.rpm")
+    assert result.status == "unsigned"
+    assert "no cryptographic signature" in result.explanation
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_unknown_signing_key_is_not_trusted(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess(
+        [], 1, "Header V4 RSA/SHA256 Signature, key ID 1234: NOKEY", ""
+    )
+    result = inspect_signature(tmp_path / "unknown-key.rpm")
+    assert result.status == "unknown-key"
+    assert "not trusted" in result.explanation
+
+
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_valid_signature_requires_digest_and_signature_success(mock_run, _which, tmp_path):
+    mock_run.return_value = subprocess.CompletedProcess([], 0, "digests signatures OK", "")
+    result = inspect_signature(tmp_path / "signed.rpm")
+    assert result.status == "trusted"
+
+
+@pytest.mark.parametrize(
+    ("output", "status"),
+    [
+        ("BAD signature", "signature-failed"),
+        ("BAD digest", "digest-failed"),
+        ("digests NOT OK", "digest-failed"),
+        ("signatures BAD", "signature-failed"),
+    ],
+)
+@patch("rpmdrop.package.shutil.which", return_value="/usr/bin/rpmkeys")
+@patch("rpmdrop.package._run")
+def test_failed_signature_and_digest_checks_are_distinct(
+    mock_run, _which, tmp_path, output, status
+):
+    mock_run.return_value = subprocess.CompletedProcess([], 1, output, "")
+    result = inspect_signature(tmp_path / "broken.rpm")
+    assert result.status == status
+
+
+@patch("rpmdrop.package.shutil.which", return_value=None)
+def test_reports_unavailable_signature_tool(_which, tmp_path):
+    result = inspect_signature(tmp_path / "unknown.rpm")
+    assert result.status == "unavailable"
