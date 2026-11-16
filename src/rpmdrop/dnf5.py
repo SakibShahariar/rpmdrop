@@ -1,16 +1,16 @@
-"""Read-only DNF5 transaction resolution for local RPM files.
+"""DNF5 daemon integration for read-only local RPM transaction resolution.
 
-The backend deliberately uses DNF5's --assumeno mode. It can resolve and
-display a proposed transaction, but it cannot execute that transaction.
+The daemon resolves dependencies and returns structured transaction items.
+This module never calls Goal.do_transaction(), so resolving a preview cannot
+install or remove packages.
 """
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class TransactionResolutionError(RuntimeError):
@@ -18,63 +18,110 @@ class TransactionResolutionError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class TransactionItem:
+    action: str
+    reason: str
+    name: str
+    epoch: str
+    version: str
+    release: str
+    architecture: str
+    repository: str
+    download_size: int
+    install_size: int
+
+
+@dataclass(frozen=True, slots=True)
 class TransactionPreview:
     package_path: Path
-    output: str
-    command: tuple[str, ...]
+    items: tuple[TransactionItem, ...]
+    warnings: tuple[str, ...]
+
+
+def _dbus_module() -> Any:
+    try:
+        return importlib.import_module("dbus")
+    except ImportError as error:
+        raise TransactionResolutionError(
+            "Python D-Bus bindings are unavailable. Install the system dbus-python package."
+        ) from error
 
 
 def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
-    """Ask DNF5 to resolve a local RPM while automatically declining changes."""
+    """Resolve a local RPM with dnf5daemon without executing the transaction."""
     path = Path(package_path).expanduser().resolve()
     if path.suffix.lower() != ".rpm" or not path.is_file():
         raise TransactionResolutionError("Choose an existing local .rpm file.")
 
-    dnf5 = shutil.which("dnf5")
-    if dnf5 is None:
-        raise TransactionResolutionError(
-            "DNF5 was not found. Install the dnf5 package to preview transactions."
-        )
-
-    command = (dnf5, "--assumeno", "install", "--", str(path))
-    environment = os.environ.copy()
-    environment["LC_ALL"] = "C"
-    environment["LANG"] = "C"
-    environment["DNF5_FORCE_COLUMNS"] = "100"
-
+    dbus = _dbus_module()
+    bus_name = "org.rpm.dnf.v0"
+    object_path = "/" + bus_name.replace(".", "/")
     try:
-        result = subprocess.run(
-            list(command),
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=180,
-            env=environment,
+        bus = dbus.SystemBus()
+        session_manager = dbus.Interface(
+            bus.get_object(bus_name, object_path),
+            dbus_interface=f"{bus_name}.SessionManager",
         )
-    except subprocess.TimeoutExpired as error:
+        session_path = session_manager.open_session(
+            dbus.Dictionary({}, signature="sv")
+        )
+        session_object = bus.get_object(bus_name, session_path)
+        rpm = dbus.Interface(
+            session_object,
+            dbus_interface=f"{bus_name}.rpm.Rpm",
+        )
+        goal = dbus.Interface(
+            session_object,
+            dbus_interface=f"{bus_name}.Goal",
+        )
+
+        # Loading a local RPM through the daemon may require Polkit
+        # authorization. This queues a goal only; it does not execute it.
+        rpm.install(
+            [str(path)],
+            dbus.Dictionary({"interactive": True}, signature="sv"),
+        )
+        raw_items, result = goal.resolve(
+            dbus.Dictionary({}, signature="sv")
+        )
+        warnings: tuple[str, ...] = ()
+        if int(result) == 2:
+            problems = tuple(str(problem) for problem in goal.get_transaction_problems_string())
+            raise TransactionResolutionError(
+                "\n".join(problems) or "DNF5 could not resolve this transaction."
+            )
+        if int(result) == 1:
+            warnings = tuple(
+                str(problem) for problem in goal.get_transaction_problems_string()
+            )
+
+        items: list[TransactionItem] = []
+        for object_type, action, reason, _attributes, package in raw_items:
+            if str(object_type).lower() != "package":
+                continue
+            values = dict(package)
+            items.append(
+                TransactionItem(
+                    action=str(action),
+                    reason=str(reason),
+                    name=str(values.get("name", "Unknown")),
+                    epoch=str(values.get("epoch", "0")),
+                    version=str(values.get("version", "Unknown")),
+                    release=str(values.get("release", "Unknown")),
+                    architecture=str(values.get("arch", "Unknown")),
+                    repository=str(values.get("repo_id", "")),
+                    download_size=int(values.get("package_size", 0)),
+                    install_size=int(values.get("install_size", 0)),
+                )
+            )
+        if not items and not warnings:
+            raise TransactionResolutionError(
+                "DNF5 resolved an empty transaction. Nothing will be installed."
+            )
+        return TransactionPreview(path, tuple(items), warnings)
+    except TransactionResolutionError:
+        raise
+    except Exception as error:
         raise TransactionResolutionError(
-            "DNF5 transaction resolution timed out. No packages were installed."
+            f"DNF5 transaction resolution failed: {error}"
         ) from error
-    except OSError as error:
-        raise TransactionResolutionError(f"Could not start DNF5: {error}") from error
-
-    output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
-    if not output:
-        raise TransactionResolutionError(
-            "DNF5 returned no transaction details. No packages were installed."
-        )
-
-    lowered = output.lower()
-    if "error:" in lowered or "failed to" in lowered or "cannot " in lowered:
-        raise TransactionResolutionError(output)
-
-    # DNF5's --assumeno intentionally declines the final confirmation. A
-    # non-zero exit status is therefore expected for a successfully resolved
-    # transaction; the captured output is shown verbatim for user review.
-    if "operation aborted" not in lowered and "nothing to do" not in lowered:
-        if result.returncode != 0:
-            raise TransactionResolutionError(output)
-
-    return TransactionPreview(package_path=path, output=output, command=command)
