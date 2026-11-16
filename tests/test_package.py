@@ -8,7 +8,6 @@ from rpmdrop.package import (
     PackageInspectionError,
     SignatureInfo,
     inspect_package,
-    inspect_signature,
 )
 
 
