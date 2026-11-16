@@ -27,8 +27,8 @@ The first milestone targets Fedora and other DNF5-based RPM systems. Repository 
 - Python and PyGObject
 - GTK 4 and libadwaita
 - RPM tooling for read-only package inspection
-- DNF5 daemon D-Bus API for transaction resolution and preview
-- Polkit or the supported DNF5 system service for the planned privilege boundary
+- DNF5 daemon D-Bus API for transaction resolution, preview, and execution
+- Polkit authentication mediated by the DNF5 daemon
 
 ## Development
 
