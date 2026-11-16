@@ -142,7 +142,8 @@ def inspect_signature(package_path: Path) -> SignatureInfo:
             output,
         )
     if any(marker in lowered for marker in (
-        "bad digest", "digests bad", "digest bad", "digests not ok",\n        "digest not ok", "digest verification failed",
+        "bad digest", "digests bad", "digest bad", "digests not ok",
+        "digest not ok", "digest verification failed",
     )):
         return SignatureInfo(
             "digest-failed",
