@@ -344,6 +344,10 @@ class RpmDropWindow(Adw.ApplicationWindow):
         if preview.warnings:
             lines.extend(("", "DNF5 warnings:"))
             lines.extend(f"- {warning}" for warning in preview.warnings)
+        removals = [
+            item for item in preview.items
+            if item.action.lower() in {"remove", "erase"}
+        ]
 
         download_size = sum(item.download_size for item in preview.items)
         install_size = sum(item.install_size for item in preview.items)
@@ -374,7 +378,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             trust_text = "Package verification information is missing. Installation is blocked."
         else:
             trust_text = self.current_signature.explanation
-        trust_label = Gtk.Label(label=trust_text)
+        if removals:\n            trust_text = (\n                f"This transaction will remove {len(removals)} installed package(s). " + trust_text\n            )\n        trust_label = Gtk.Label(label=trust_text)
         trust_label.set_xalign(0)
         trust_label.set_wrap(True)
         trust_label.add_css_class("warning" if status in {"unsigned", "unknown-key"} else "dim-label")
@@ -382,10 +386,10 @@ class RpmDropWindow(Adw.ApplicationWindow):
 
         if blocked:
             acknowledgement_text = "Installation is blocked until package verification succeeds."
+        elif removals:
+            acknowledgement_text = (\n                "I reviewed the transaction, understand that packages will be removed, " \n                "and want to continue."\n            )
         elif status in {"unsigned", "unknown-key"}:
-            acknowledgement_text = (
-                "I understand the package signature warning and still want to install."
-            )
+            acknowledgement_text = (\n                "I understand the package signature warning and still want to install."\n            )
         else:
             acknowledgement_text = "I reviewed this transaction and want to install these packages."
         acknowledgement = Gtk.CheckButton(label=acknowledgement_text)
