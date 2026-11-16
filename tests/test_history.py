@@ -14,7 +14,7 @@ def test_records_and_lists_recent_operations(tmp_path: Path):
     )
     store.record("failed", ["Install broken-1.0-1.noarch"], "Missing dependency")
 
-    records = store.list_recent()
+    records = HistoryStore(store.path).list_recent()
     assert len(records) == 2
     assert records[0].status == "failed"
     assert records[0].details == "Missing dependency"
@@ -44,3 +44,12 @@ def test_history_is_bounded_to_one_hundred_records(tmp_path: Path):
     assert len(records) == 100
     assert records[0].packages == ("Install package-104",)
     assert records[-1].packages == ("Install package-5",)
+
+
+
+def test_records_authorization_denial_and_clears_history(tmp_path: Path):
+    store = HistoryStore(tmp_path / "history.sqlite3")
+    store.record("authorization-denied", ["Install example"], "Polkit denied authorization")
+    assert store.list_recent()[0].status == "authorization-denied"
+    store.clear()
+    assert store.list_recent() == ()
