@@ -55,6 +55,7 @@ class HistoryStore:
             )
             """
         )
+        connection.commit()
         return connection
 
     def record(
