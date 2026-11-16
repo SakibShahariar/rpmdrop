@@ -424,13 +424,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         if preview.warnings:
             lines.extend(("", "DNF5 warnings:"))
             lines.extend(f"- {warning}" for warning in preview.warnings)
+        download_actions = {"install", "upgrade", "downgrade", "reinstall"}
+        removal_actions = {"remove", "erase", "obsolete", "obsoleted", "replaced"}
         removals = [
             item for item in preview.items
             if item.action.lower() in removal_actions
         ]
 
-        download_actions = {"install", "upgrade", "downgrade", "reinstall"}
-        removal_actions = {"remove", "erase", "obsolete", "obsoleted", "replaced"}
         download_size = sum(
             item.download_size
             for item in preview.items
