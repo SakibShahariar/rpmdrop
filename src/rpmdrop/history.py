@@ -33,16 +33,10 @@ class HistoryStore:
 
     def _connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        try:
-            self.path.parent.chmod(0o700)
-        except OSError:
-            pass
+        self.path.parent.chmod(0o700)
         if not self.path.exists():
             self.path.touch(mode=0o600)
-        try:
-            self.path.chmod(0o600)
-        except OSError:
-            pass
+        self.path.chmod(0o600)
         connection = sqlite3.connect(self.path)
         connection.execute(
             """
