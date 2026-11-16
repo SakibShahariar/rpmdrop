@@ -119,7 +119,7 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
             dbus.Dictionary({"interactive": True}, signature="sv"),
         )
         raw_items, result = goal.resolve(
-            dbus.Dictionary({}, signature="sv")
+            dbus.Dictionary({"allow_erasing": True}, signature="sv")
         )
         warnings: tuple[str, ...] = ()
         if int(result) == 2:
@@ -168,7 +168,9 @@ def execute_transaction(
     completion_state: dict[str, bool | None] = {"success": None}
     try:
         bus, goal = _goal_for_session(dbus, preview.session_path)
-        raw_items, result = goal.resolve(dbus.Dictionary({}, signature="sv"))
+        raw_items, result = goal.resolve(
+            dbus.Dictionary({"allow_erasing": True}, signature="sv")
+        )
         if int(result) == 2:
             problems = tuple(str(problem) for problem in goal.get_transaction_problems_string())
             raise TransactionExecutionError(
