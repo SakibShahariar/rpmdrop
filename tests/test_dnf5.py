@@ -13,6 +13,8 @@ from rpmdrop.dnf5 import (
 
 
 class FakeDBus:
+    DBusException = RuntimeError
+
     class Dictionary(dict):
         def __init__(self, value, signature):
             super().__init__(value)
