@@ -48,7 +48,7 @@ desktop-file-validate %{buildroot}%{_bindir}/rpmdrop
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
-%{_datadir}/nautilus-python/extensions/__pycache__/*.pyc
+%exclude %{_datadir}/nautilus-python/extensions/__pycache__/*
 
 %changelog
 * Mon Nov 16 2026 Sakib Shahariar Shimanto <sakibshahariar@users.noreply.github.com> - 0.1.0-1
