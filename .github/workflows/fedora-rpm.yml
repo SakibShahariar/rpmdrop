@@ -104,6 +104,7 @@ jobs:
           command -v rpmdrop
           test -f /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
           test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
+          python3 tests/nautilus_smoke.py
           dnf remove -y rpmdrop
           ! rpm -q rpmdrop
           test ! -e /usr/bin/rpmdrop
