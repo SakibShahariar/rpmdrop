@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 from pathlib import Path
+
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
 
 from rpmdrop.dnf5 import close_session, execute_transaction, resolve_local_rpm
 
 
 def main() -> None:
+    DBusGMainLoop(set_as_default=True)
     rpm_path = Path(sys.argv[1]).resolve()
     if not rpm_path.is_file():
         raise SystemExit(f"Test RPM not found: {rpm_path}")
@@ -29,10 +34,35 @@ def main() -> None:
             + ", ".join(sorted(names))
         )
 
-    try:
-        execute_transaction(preview)
-    finally:
-        close_session(preview)
+    loop = GLib.MainLoop()
+    progress_messages: list[str] = []
+    errors: list[Exception] = []
+
+    def install_in_worker() -> None:
+        try:
+            execute_transaction(
+                preview,
+                progress_callback=lambda message, _fraction: progress_messages.append(message),
+            )
+        except Exception as error:
+            errors.append(error)
+        finally:
+            try:
+                close_session(preview)
+            except Exception as error:
+                errors.append(error)
+            GLib.idle_add(loop.quit)
+
+    worker = threading.Thread(target=install_in_worker, daemon=True)
+    worker.start()
+    loop.run()
+    worker.join(timeout=10)
+    if worker.is_alive():
+        raise SystemExit("The DNF5 transaction worker did not finish.")
+    if errors:
+        raise SystemExit(f"The DNF5 transaction failed: {errors[0]}")
+    if not progress_messages:
+        raise SystemExit("The DNF5 daemon did not emit any transaction progress signals.")
 
     installed_after = subprocess.run(
         ["rpm", "-q", "rpmdrop-dbus-smoke"], check=False, capture_output=True
