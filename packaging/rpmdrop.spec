@@ -20,12 +20,22 @@ Requires:       python3-gobject
 Requires:       python3-dbus
 Requires:       rpm
 Requires:       dnf5daemon-server
-Requires:       nautilus-python
+Recommends:     rpmdrop-nautilus
 
 %description
 RpmDrop is a lightweight GTK 4 and libadwaita application for inspecting
 local RPM packages and previewing DNF5 dependency transactions before
 installation.
+
+%package nautilus
+Summary:        Optional GNOME Files context-menu action for RpmDrop
+Requires:       %{name} = %{version}-%{release}
+Requires:       nautilus-python
+
+%description nautilus
+Adds an optional "Inspect with RpmDrop" context-menu action to GNOME Files.
+It passes selected local RPM files to RpmDrop and never starts installation
+directly from the context menu.
 
 %prep
 %autosetup -n %{name}-%{version}
@@ -39,6 +49,8 @@ installation.
 %install
 %pyproject_install
 %pyproject_save_files rpmdrop
+install -Dpm0644 data/nautilus-rpmdrop.py \
+    %{buildroot}%{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
@@ -47,6 +59,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahar
 %{_bindir}/rpmdrop
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
+
+%files nautilus
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
 %exclude %{_datadir}/nautilus-python/extensions/__pycache__/*
 
