@@ -10,7 +10,7 @@ RpmDrop separates its GTK interface from system-tool adapters.
 ## Installation safety requirements
 
 1. Inspecting a file must never install it or execute code from it.
-2. Signature status must distinguish valid, unsigned, unknown-key, and failed verification. Unknown trust must never be displayed as verified.
+2. Signature status must distinguish trusted, unsigned, unknown-key, digest-failed, signature-failed, unavailable, and indeterminate results. Unknown trust must never be displayed as verified.\n3. Unsigned and unknown-key packages require a separate explicit warning acknowledgement before installation; failed digest or signature checks are blocked. Unavailable or indeterminate verification is also blocked until the package can be checked.
 3. Resolve dependencies with DNF5 and show the complete proposed transaction before confirmation.
 4. Require an explicit user action before starting a transaction.
 5. Never construct shell command strings from package metadata or file names. Use argument arrays.
