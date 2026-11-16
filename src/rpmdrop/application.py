@@ -3,45 +3,108 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from rpmdrop.package import PackageInfo, PackageInspectionError, inspect_package
 
 
 class RpmDropWindow(Adw.ApplicationWindow):
+    """Main window for selecting and inspecting local RPM packages."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_title("RpmDrop")
-        self.set_default_size(680, 560)
+        self.set_default_size(680, 600)
+        self.set_size_request(480, 420)
+
+        self._pending_paths: list[str] = []
+        self._inspection_active = False
+
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(outer)
+
         header = Adw.HeaderBar()
         outer.append(header)
-        open_button = Gtk.Button(label="Open RPM")
-        open_button.add_css_class("suggested-action")
-        open_button.connect("clicked", self._on_open_clicked)
-        header.pack_end(open_button)
+        self.open_button = Gtk.Button(label="Open RPM")
+        self.open_button.add_css_class("suggested-action")
+        self.open_button.connect("clicked", self._on_open_clicked)
+        header.pack_end(self.open_button)
 
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18,
-                          margin_top=24, margin_bottom=24, margin_start=24, margin_end=24)
+        content = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=18,
+            margin_top=24,
+            margin_bottom=24,
+            margin_start=28,
+            margin_end=28,
+        )
         outer.append(content)
-        self.heading = Gtk.Label(label="Inspect a package")
+
+        intro = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        content.append(intro)
+        self.package_icon = Gtk.Image.new_from_icon_name("package-x-generic-symbolic")
+        self.package_icon.set_pixel_size(48)
+        self.package_icon.add_css_class("dim-label")
+        intro.append(self.package_icon)
+
+        titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        intro.append(titles)
+        self.heading = Gtk.Label(label="Install RPM packages with ease")
         self.heading.add_css_class("title-1")
         self.heading.set_xalign(0)
-        content.append(self.heading)
-        self.status = Gtk.Label(label="Choose a local .rpm file to review its details before installation.")
+        self.heading.set_wrap(True)
+        titles.append(self.heading)
+        self.status = Gtk.Label(
+            label="Choose a local .rpm file to inspect it before making system changes."
+        )
         self.status.set_xalign(0)
         self.status.set_wrap(True)
         self.status.add_css_class("dim-label")
-        content.append(self.status)
+        titles.append(self.status)
+
+        self.spinner = Gtk.Spinner()
+        self.spinner.set_halign(Gtk.Align.START)
+        self.spinner.set_visible(False)
+        content.append(self.spinner)
+
+        self.drop_area = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.CENTER,
+            hexpand=True,
+            vexpand=True,
+            margin_top=12,
+            margin_bottom=12,
+        )
+        self.drop_area.add_css_class("card")
+        self.drop_area.set_size_request(-1, 170)
+        content.append(self.drop_area)
+
+        drop_icon = Gtk.Image.new_from_icon_name("folder-download-symbolic")
+        drop_icon.set_pixel_size(40)
+        drop_icon.add_css_class("dim-label")
+        self.drop_area.append(drop_icon)
+        drop_label = Gtk.Label(label="Open an RPM package")
+        drop_label.add_css_class("title-3")
+        self.drop_area.append(drop_label)
+        drop_hint = Gtk.Label(label="Use Open RPM above or open an .rpm file from Files.")
+        drop_hint.add_css_class("dim-label")
+        drop_hint.set_wrap(True)
+        drop_hint.set_justify(Gtk.Justification.CENTER)
+        self.drop_area.append(drop_hint)
+
         self.details = Adw.PreferencesGroup(title="Package details")
+        self.details.set_visible(False)
         content.append(self.details)
+
         self.description = Gtk.Label()
         self.description.set_xalign(0)
         self.description.set_wrap(True)
@@ -50,10 +113,20 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.append(self.description)
         self._rows: list[Adw.ActionRow] = []
 
+        footer = Gtk.Label(
+            label="RpmDrop inspects packages first. Nothing is installed during inspection."
+        )
+        footer.set_wrap(True)
+        footer.set_xalign(0)
+        footer.add_css_class("dim-label")
+        footer.add_css_class("caption")
+        content.append(footer)
+
     def _clear_details(self) -> None:
         for row in self._rows:
             self.details.remove(row)
         self._rows.clear()
+        self.details.set_visible(False)
         self.description.set_visible(False)
 
     def _add_row(self, title: str, value: str) -> None:
@@ -63,8 +136,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._rows.append(row)
 
     def _on_open_clicked(self, _button: Gtk.Button) -> None:
-        chooser = Gtk.FileChooserNative.new("Open an RPM package", self,
-            Gtk.FileChooserAction.OPEN, "Open", "Cancel")
+        chooser = Gtk.FileChooserNative.new(
+            "Open an RPM package",
+            self,
+            Gtk.FileChooserAction.OPEN,
+            "Open",
+            "Cancel",
+        )
         rpm_filter = Gtk.FileFilter()
         rpm_filter.set_name("RPM packages")
         rpm_filter.add_pattern("*.rpm")
@@ -76,38 +154,104 @@ class RpmDropWindow(Adw.ApplicationWindow):
         if response == Gtk.ResponseType.ACCEPT:
             selected = chooser.get_file()
             if selected is not None and selected.get_path():
-                self.inspect_path(selected.get_path())
+                self.inspect_paths([selected.get_path()])
         chooser.destroy()
 
     def inspect_path(self, path: str) -> None:
-        self.status.set_text(f"Inspecting {Path(path).name}…")
+        """Queue one path for inspection; retained for desktop file opening."""
+        self.inspect_paths([path])
+
+    def inspect_paths(self, paths: list[str]) -> None:
+        """Inspect paths sequentially without blocking the GTK main loop."""
+        valid_paths = [str(Path(path).expanduser()) for path in paths if path]
+        if not valid_paths:
+            return
+        self._pending_paths.extend(valid_paths)
+        if not self._inspection_active:
+            self._start_next_inspection()
+
+    def _start_next_inspection(self) -> None:
+        if not self._pending_paths:
+            self._inspection_active = False
+            self.spinner.stop()
+            self.spinner.set_visible(False)
+            self.open_button.set_sensitive(True)
+            return
+
+        path = self._pending_paths.pop(0)
+        self._inspection_active = True
+        self.open_button.set_sensitive(False)
+        self.spinner.set_visible(True)
+        self.spinner.start()
+        self.drop_area.set_visible(False)
+        self._clear_details()
+        self.package_icon.set_from_icon_name("package-x-generic-symbolic")
+        self.heading.set_text("Inspecting package")
+        self.status.set_text(Path(path).name)
+
+        thread = threading.Thread(
+            target=self._inspect_in_background,
+            args=(path,),
+            daemon=True,
+        )
+        thread.start()
+
+    def _inspect_in_background(self, path: str) -> None:
+        info: PackageInfo | None = None
+        error: str | None = None
         try:
             info = inspect_package(path)
-        except PackageInspectionError as error:
+        except PackageInspectionError as inspection_error:
+            error = str(inspection_error)
+        except Exception as unexpected_error:  # Keep unexpected worker errors visible.
+            error = f"Unexpected inspection error: {unexpected_error}"
+        GLib.idle_add(self._inspection_finished, path, info, error)
+
+    def _inspection_finished(
+        self,
+        path: str,
+        info: PackageInfo | None,
+        error: str | None,
+    ) -> bool:
+        if error is not None:
             self._clear_details()
             self.heading.set_text("Could not inspect package")
-            self.status.set_text(str(error))
-            return
-        self._display_package(info)
+            self.status.set_text(error)
+            self.package_icon.set_from_icon_name("dialog-error-symbolic")
+        elif info is not None:
+            self._display_package(info)
+
+        self._inspection_active = False
+        self._start_next_inspection()
+        return GLib.SOURCE_REMOVE
 
     def _display_package(self, info: PackageInfo) -> None:
         self._clear_details()
+        self.package_icon.set_from_icon_name("package-x-generic-symbolic")
         self.heading.set_text(info.name)
         self.status.set_text(f"{info.version}-{info.release} · {info.architecture}")
         for title, value in (
-            ("Version", f"{info.version}-{info.release}"), ("Architecture", info.architecture),
-            ("Vendor", info.vendor), ("Packager", info.packager), ("License", info.license),
-            ("Signature", info.signature), ("File", str(info.path)),
+            ("Version", f"{info.version}-{info.release}"),
+            ("Architecture", info.architecture),
+            ("Vendor", info.vendor),
+            ("Packager", info.packager),
+            ("License", info.license),
+            ("Signature verification", info.signature),
+            ("File", str(info.path)),
         ):
             self._add_row(title, value)
+        self.details.set_visible(True)
         self.description.set_text(f"{info.summary}\n\n{info.description}")
         self.description.set_visible(True)
+        self.drop_area.set_visible(False)
 
 
 class RpmDropApplication(Adw.Application):
     def __init__(self):
-        super().__init__(application_id="io.github.sakibshahariar.RpmDrop",
-                         flags=Gio.ApplicationFlags.HANDLES_OPEN)
+        super().__init__(
+            application_id="io.github.sakibshahariar.RpmDrop",
+            flags=Gio.ApplicationFlags.HANDLES_OPEN,
+        )
         self.window: RpmDropWindow | None = None
 
     def do_activate(self) -> None:
@@ -117,10 +261,9 @@ class RpmDropApplication(Adw.Application):
 
     def do_open(self, files: list[Gio.File], _n_files: int, _hint: str) -> None:
         self.do_activate()
-        if self.window and files:
-            path = files[0].get_path()
-            if path:
-                self.window.inspect_path(path)
+        if self.window:
+            paths = [file.get_path() for file in files if file.get_path()]
+            self.window.inspect_paths(paths)
 
 
 def main() -> int:
