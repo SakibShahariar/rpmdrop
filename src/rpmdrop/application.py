@@ -462,6 +462,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._active_preview = preview
         dialog = Gtk.Dialog(title="Installing packages", transient_for=self, modal=True)
         dialog.set_default_size(460, 180)
+        dialog.set_deletable(False)
         self._install_cancel_button = dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         content = dialog.get_content_area()
         content.set_spacing(12)
