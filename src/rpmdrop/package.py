@@ -35,6 +35,7 @@ class PackageInfo:
     license: str
     signature: str
     requirements: tuple[str, ...]
+    provides: tuple[str, ...]
 
 
 _SEPARATOR = "\x1f"
@@ -88,6 +89,15 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
         line.strip() for line in requirements_result.stdout.splitlines() if line.strip()
     )
 
+    provides_result = _run([rpm, "-qp", "--provides", str(path)])
+    if provides_result.returncode != 0:
+        raise PackageInspectionError(
+            provides_result.stderr.strip() or "rpm could not read package capabilities."
+        )
+    provides = tuple(
+        line.strip() for line in provides_result.stdout.splitlines() if line.strip()
+    )
+
     return PackageInfo(
         path=path, name=fields[0] or "Unknown", version=fields[1] or "Unknown",
         release=fields[2] or "Unknown", architecture=fields[3] or "Unknown",
@@ -96,6 +106,7 @@ def inspect_package(package_path: str | Path) -> PackageInfo:
         vendor=fields[6] or "Unknown", packager=fields[7] or "Unknown",
         license=fields[8] or "Unknown", signature=inspect_signature(path),
         requirements=requirements,
+        provides=provides,
     )
 
 
