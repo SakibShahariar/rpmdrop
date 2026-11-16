@@ -183,14 +183,25 @@ def inspect_signature(package_path: Path) -> SignatureInfo:
             "RPM could not complete verification. Treat this package as unverified.",
             output or "rpmkeys returned an error without details.",
         )
-    if "digests signatures ok" in lowered or "digests signature ok" in lowered:
+    digest_lines = [line for line in lowered.splitlines() if "digest" in line]
+    signature_lines = [line for line in lowered.splitlines() if "signature" in line]
+    combined_success = (
+        "digests signatures ok" in lowered or "digests signature ok" in lowered
+    )
+    digest_ok = combined_success or "digests ok" in lowered or any(
+        line.rstrip().endswith(": ok") for line in digest_lines
+    )
+    signature_ok = combined_success or "signatures ok" in lowered or any(
+        line.rstrip().endswith(": ok") for line in signature_lines
+    )
+    if digest_ok and signature_ok:
         return SignatureInfo(
             "trusted",
             "Signature verified with a trusted key",
             "The package signature and file digests both passed verification.",
             output,
         )
-    if "digests ok" in lowered and "signature" not in lowered:
+    if digest_ok and not signature_ok:
         return SignatureInfo(
             "unsigned",
             "Unsigned package",
