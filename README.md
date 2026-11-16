@@ -6,7 +6,7 @@ RpmDrop is a focused local-package installer for Fedora and other DNF5-based RPM
 
 ## Current implementation
 
-- Open local RPM files from the application or through the desktop's **Open With** integration.
+- Open local RPM files from the application, desktop **Open With**, or the Nautilus **Inspect with RpmDrop** context-menu action (including multiple selected RPM files).
 - Inspect package metadata, including version, architecture, vendor, packager, license, summary, and description.
 - Review the package's declared RPM requirements.
 - See signature and digest verification results without treating unknown signing keys as trusted.
@@ -29,7 +29,7 @@ The first milestone targets Fedora and other DNF5-based RPM systems. Repository 
 
 ## Development
 
-The application requires Python 3, GTK 4, libadwaita, PyGObject, the RPM command-line tools, `dnf5daemon-server`, and the system Python D-Bus bindings (`python3-dbus` on Fedora).
+The application requires Python 3, GTK 4, libadwaita, PyGObject, the RPM command-line tools, `dnf5daemon-server`, the system Python D-Bus bindings (`python3-dbus` on Fedora), and `nautilus-python` for the Files context-menu extension.
 
 Run the application from a checkout with:
 
