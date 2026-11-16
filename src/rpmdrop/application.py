@@ -265,6 +265,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             return
         path = self.current_package_path
         self.preview_button.set_sensitive(False)
+        self.open_button.set_sensitive(False)
         self.status.set_text("Resolving dependencies with DNF5…")
         self.spinner.set_visible(True)
         self.spinner.start()
@@ -291,10 +292,12 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.spinner.stop()
         self.spinner.set_visible(False)
         self.preview_button.set_sensitive(True)
+        self.open_button.set_sensitive(True)
         if error is not None:
             self.status.set_text(f"Could not resolve transaction: {error}")
             return GLib.SOURCE_REMOVE
         if preview is not None:
+            self.status.set_text("Transaction preview ready — no changes made.")
             self._show_transaction_preview(preview)
         return GLib.SOURCE_REMOVE
 
