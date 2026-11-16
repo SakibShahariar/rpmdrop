@@ -38,7 +38,10 @@ def test_parses_package_metadata_and_requirements(mock_run, _which, tmp_path: Pa
         subprocess.CompletedProcess([], 0, metadata, ""),
         subprocess.CompletedProcess([], 0, "glibc\npython(abi) = 3.12\n", ""),
     ]
-    with patch(\n        "rpmdrop.package.inspect_signature",\n        return_value=SignatureInfo("trusted", "Trusted", "Verified.", ""),\n    ):
+    with patch(
+        "rpmdrop.package.inspect_signature",
+        return_value=SignatureInfo("trusted", "Trusted", "Verified.", ""),
+    ):
         info = inspect_package(rpm_file)
     assert info.name == "sample"
     assert info.version == "1.2.3"
