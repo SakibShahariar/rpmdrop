@@ -279,6 +279,8 @@ def execute_transaction(
             )
             receivers.append(transaction_completed)
 
+        if progress_callback is not None:
+            progress_callback("Requesting authorization and starting the transaction", None)
         goal.do_transaction(
             dbus.Dictionary({"interactive": True}, signature="sv"),
             timeout=3600,
