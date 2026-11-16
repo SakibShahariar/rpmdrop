@@ -34,7 +34,7 @@ Fedora 44 is the first supported and CI-tested target. Other distributions may w
 
 ## Development
 
-The application requires Python 3, GTK 4, libadwaita, PyGObject, the RPM command-line tools, `dnf5daemon-server`, the system Python D-Bus bindings (`python3-dbus` on Fedora), and `nautilus-python` for the Files context-menu extension.
+The application requires Python 3, GTK 4, libadwaita, PyGObject, the RPM command-line tools, `dnf5daemon-server`, the system Python D-Bus bindings (`python3-dbus` on Fedora), and optionally `nautilus-python` for the Files context-menu extension.
 
 Run the application from a checkout with:
 
