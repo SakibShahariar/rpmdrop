@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from contextlib import closing
 import os
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -74,7 +74,7 @@ class HistoryStore:
                 VALUES (?, ?, ?, ?)
                 """,
                 (
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                     status,
                     json.dumps(package_list, ensure_ascii=False),
                     details[:4000],
