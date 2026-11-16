@@ -231,7 +231,7 @@ def execute_transaction(
                 bus.add_signal_receiver(
                     handler,
                     signal_name=signal_name,
-                    dbus_interface="org.rpm.dnf.v0.SessionManager",
+                    dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
                     path=preview.session_path,
                 )
                 receivers.append(handler)
@@ -251,7 +251,7 @@ def execute_transaction(
             bus.add_signal_receiver(
                 download_progress,
                 signal_name="download_progress",
-                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                dbus_interface="org.rpm.dnf.v0.Base",
                 path=preview.session_path,
             )
             receivers.append(download_progress)
@@ -259,7 +259,7 @@ def execute_transaction(
             bus.add_signal_receiver(
                 action_started,
                 signal_name="transaction_action_start",
-                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
                 path=preview.session_path,
             )
             receivers.append(action_started)
@@ -274,7 +274,7 @@ def execute_transaction(
             bus.add_signal_receiver(
                 transaction_completed,
                 signal_name="transaction_after_complete",
-                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                dbus_interface="org.rpm.dnf.v0.rpm.Rpm",
                 path=preview.session_path,
             )
             receivers.append(transaction_completed)
