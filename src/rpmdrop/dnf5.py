@@ -220,9 +220,8 @@ def execute_transaction(
 
             signal_handlers = (
                 ("transaction_elem_progress", "Preparing", True, True),
-                ("transaction_action_start", "Starting action", False, False),
                 ("transaction_transaction_progress", "Downloading packages", True, False),
-                ("transaction_action_progress", "Installing", True, True),
+                ("transaction_action_progress", "Processing", True, True),
                 ("transaction_before_begin", "Starting RPM transaction", False, False),
             )
             for signal_name, prefix, has_progress, has_subject in signal_handlers:
@@ -234,6 +233,17 @@ def execute_transaction(
                     path=preview.session_path,
                 )
                 receivers.append(handler)
+
+            def action_started(_session, nevra, _action, _total):
+                progress_callback(f"Starting package action: {nevra}", None)
+
+            bus.add_signal_receiver(
+                action_started,
+                signal_name="transaction_action_start",
+                dbus_interface="org.rpm.dnf.v0.SessionManager",
+                path=preview.session_path,
+            )
+            receivers.append(action_started)
 
             def transaction_completed(_session, success):
                 completion_state["success"] = bool(success)
