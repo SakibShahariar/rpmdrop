@@ -212,7 +212,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
             info = inspect_package(path)
         except PackageInspectionError as inspection_error:
             error = str(inspection_error)
-        except Exception as unexpected_error:  # Keep unexpected worker errors visible.
+        except (OSError, RuntimeError, ValueError) as unexpected_error:
             error = f"Unexpected inspection error: {unexpected_error}"
         GLib.idle_add(self._inspection_finished, path, info, error)
 
