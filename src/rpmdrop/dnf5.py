@@ -8,6 +8,7 @@ install or remove packages.
 from __future__ import annotations
 
 import importlib
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -77,7 +78,6 @@ def _items_from_raw(raw_items: Any) -> tuple[TransactionItem, ...]:
 
 def _goal_for_session(dbus: Any, session_path: str) -> tuple[Any, Any]:
     bus_name = "org.rpm.dnf.v0"
-    object_path = "/" + bus_name.replace(".", "/")
     bus = dbus.SystemBus()
     session_object = bus.get_object(bus_name, session_path)
     goal = dbus.Interface(session_object, dbus_interface=f"{bus_name}.Goal")
@@ -140,7 +140,7 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
         return TransactionPreview(path, items, warnings, str(session_path))
     except TransactionResolutionError:
         raise
-    except Exception as error:  # noqa: BLE001 - D-Bus exposes backend-specific exception types.
+    except Exception as error:
         message = str(error)
         dbus_name = getattr(error, "get_dbus_name", lambda: "")()
         if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown" or "ServiceUnknown" in message:
@@ -204,21 +204,19 @@ def execute_transaction(
         )
     except TransactionExecutionError:
         raise
-    except Exception as error:  # noqa: BLE001 - normalize D-Bus and Polkit failures.
+    except Exception as error:
         raise TransactionExecutionError(
             f"DNF5 installation failed: {error}"
         ) from error
     finally:
         if "bus" in locals():
             for handler in receivers:
-                try:
+                with suppress(dbus.DBusException):
                     bus.remove_signal_receiver(
                         handler,
                         dbus_interface="org.rpm.dnf.v0.SessionManager",
                         path=preview.session_path,
                     )
-                except Exception:  # noqa: BLE001 - signal cleanup must not mask transaction results.
-                    pass
 
 
 def cancel_transaction(preview: TransactionPreview) -> tuple[bool, str]:
@@ -228,7 +226,7 @@ def cancel_transaction(preview: TransactionPreview) -> tuple[bool, str]:
         _bus, goal = _goal_for_session(dbus, preview.session_path)
         success, message = goal.cancel()
         return bool(success), str(message)
-    except Exception as error:  # noqa: BLE001 - normalize D-Bus cancellation failures.
+    except Exception as error:
         raise TransactionExecutionError(
             f"Could not cancel the DNF5 transaction: {error}"
         ) from error
