@@ -589,14 +589,22 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._add_row("Signature verification", info.signature.summary)
         self._add_row("Verification details", info.signature.explanation)
 
-        requirement_text = (\n            f"Could not read requirements: {info.requirements_error}"\n            if info.requirements_error\n            else "\n".join(info.requirements) if info.requirements else "No requirements listed"\n        )
+        requirement_text = (
+            f"Could not read requirements: {info.requirements_error}"
+            if info.requirements_error
+            else "\n".join(info.requirements) if info.requirements else "No requirements listed"
+        )
         self.requirements_row = Adw.ActionRow(
             title=f"Requires ({len(info.requirements)})",
             subtitle=requirement_text,
         )
         self.requirements_row.set_subtitle_selectable(True)
         self.requirements_group.add(self.requirements_row)
-        provides_text = (\n            f"Could not read capabilities: {info.provides_error}"\n            if info.provides_error\n            else "\n".join(info.provides) if info.provides else "No capabilities listed"\n        )
+        provides_text = (
+            f"Could not read capabilities: {info.provides_error}"
+            if info.provides_error
+            else "\n".join(info.provides) if info.provides else "No capabilities listed"
+        )
         self.provides_row = Adw.ActionRow(
             title=f"Provides ({len(info.provides)})",
             subtitle=provides_text,
