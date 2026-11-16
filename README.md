@@ -6,7 +6,8 @@ RpmDrop is a focused local-package installer for Fedora and other DNF5-based RPM
 
 ## Current implementation
 
-- Open local RPM files from the application, desktop **Open With**, or the Nautilus **Inspect with RpmDrop** context-menu action (including multiple selected RPM files).
+- Open local RPM files from the application or desktop **Open With**.
+- Optionally install the `rpmdrop-nautilus` subpackage to add **Inspect with RpmDrop** to GNOME Files for one or multiple selected RPMs. Remove that subpackage to disable the context-menu action without removing RpmDrop.
 - Inspect package metadata, including version, architecture, vendor, packager, license, summary, and description.
 - Review the package's declared RPM requirements and provided capabilities, separately from DNF5's resolved transaction.
 - See distinct trusted, unsigned, unknown-key, digest-failure, signature-failure, and unavailable verification states with explanations.
