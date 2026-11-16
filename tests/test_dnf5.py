@@ -139,6 +139,12 @@ def test_executes_only_after_revalidating_preview(tmp_path: Path):
     rpm_file = tmp_path / "example.rpm"
     rpm_file.write_bytes(b"rpm")
     fake = FakeDBus(items=[("package", "Install", "User", {}, make_package())])
+
+    def confirm_transaction(*_args, **_kwargs):
+        receiver = fake.bus.add_signal_receiver.call_args.args[0]
+        receiver("/session/1", True)
+
+    fake.goal.do_transaction.side_effect = confirm_transaction
     with patch("rpmdrop.dnf5._dbus_module", return_value=fake):
         preview = resolve_local_rpm(rpm_file)
         execute_transaction(preview)
