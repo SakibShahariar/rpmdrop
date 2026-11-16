@@ -17,6 +17,10 @@ class TransactionResolutionError(RuntimeError):
     """Raised when DNF5 cannot resolve a local RPM transaction."""
 
 
+class TransactionExecutionError(RuntimeError):
+    """Raised when a confirmed DNF5 transaction cannot be executed."""
+
+
 @dataclass(frozen=True, slots=True)
 class TransactionItem:
     action: str
@@ -36,6 +40,7 @@ class TransactionPreview:
     package_path: Path
     items: tuple[TransactionItem, ...]
     warnings: tuple[str, ...]
+    session_path: str
 
 
 def _dbus_module() -> Any:
@@ -45,6 +50,38 @@ def _dbus_module() -> Any:
         raise TransactionResolutionError(
             "Python D-Bus bindings are unavailable. Install the system dbus-python package."
         ) from error
+
+
+def _items_from_raw(raw_items: Any) -> tuple[TransactionItem, ...]:
+    items: list[TransactionItem] = []
+    for object_type, action, reason, _attributes, package in raw_items:
+        if str(object_type).lower() != "package":
+            continue
+        values = dict(package)
+        items.append(
+            TransactionItem(
+                action=str(action),
+                reason=str(reason),
+                name=str(values.get("name", "Unknown")),
+                epoch=str(values.get("epoch", "0")),
+                version=str(values.get("version", "Unknown")),
+                release=str(values.get("release", "Unknown")),
+                architecture=str(values.get("arch", "Unknown")),
+                repository=str(values.get("repo_id", "")),
+                download_size=int(values.get("package_size", 0)),
+                install_size=int(values.get("install_size", 0)),
+            )
+        )
+    return tuple(items)
+
+
+def _goal_for_session(dbus: Any, session_path: str) -> tuple[Any, Any]:
+    bus_name = "org.rpm.dnf.v0"
+    object_path = "/" + bus_name.replace(".", "/")
+    bus = dbus.SystemBus()
+    session_object = bus.get_object(bus_name, session_path)
+    goal = dbus.Interface(session_object, dbus_interface=f"{bus_name}.Goal")
+    return bus, goal
 
 
 def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
@@ -95,30 +132,12 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
                 str(problem) for problem in goal.get_transaction_problems_string()
             )
 
-        items: list[TransactionItem] = []
-        for object_type, action, reason, _attributes, package in raw_items:
-            if str(object_type).lower() != "package":
-                continue
-            values = dict(package)
-            items.append(
-                TransactionItem(
-                    action=str(action),
-                    reason=str(reason),
-                    name=str(values.get("name", "Unknown")),
-                    epoch=str(values.get("epoch", "0")),
-                    version=str(values.get("version", "Unknown")),
-                    release=str(values.get("release", "Unknown")),
-                    architecture=str(values.get("arch", "Unknown")),
-                    repository=str(values.get("repo_id", "")),
-                    download_size=int(values.get("package_size", 0)),
-                    install_size=int(values.get("install_size", 0)),
-                )
-            )
+        items = _items_from_raw(raw_items)
         if not items and not warnings:
             raise TransactionResolutionError(
                 "DNF5 resolved an empty transaction. Nothing will be installed."
             )
-        return TransactionPreview(path, tuple(items), warnings)
+        return TransactionPreview(path, items, warnings, str(session_path))
     except TransactionResolutionError:
         raise
     except Exception as error:
@@ -131,4 +150,85 @@ def resolve_local_rpm(package_path: str | Path) -> TransactionPreview:
             ) from error
         raise TransactionResolutionError(
             f"DNF5 transaction resolution failed: {message}"
+        ) from error
+
+
+
+def execute_transaction(
+    preview: TransactionPreview,
+    progress_callback: Any | None = None,
+) -> None:
+    """Revalidate and execute the exact previewed DNF5 goal after user approval."""
+    dbus = _dbus_module()
+    receivers = []
+    try:
+        bus, goal = _goal_for_session(dbus, preview.session_path)
+        raw_items, result = goal.resolve(dbus.Dictionary({}, signature="sv"))
+        if int(result) == 2:
+            problems = tuple(str(problem) for problem in goal.get_transaction_problems_string())
+            raise TransactionExecutionError(
+                "\n".join(problems) or "DNF5 could not revalidate the transaction."
+            )
+        current_items = _items_from_raw(raw_items)
+        if current_items != preview.items:
+            raise TransactionExecutionError(
+                "The DNF5 transaction changed since the preview. Review a new preview "
+                "before installing."
+            )
+
+        if progress_callback is not None:
+            def report(label: str):
+                def handler(_session, *values):
+                    progress_callback(label.format(*values))
+                return handler
+
+            signal_handlers = (
+                ("transaction_elem_progress", "Preparing {} ({}/{})"),
+                ("transaction_action_start", "{}: {}"),
+                ("transaction_transaction_progress", "Downloading packages ({}/{})"),
+                ("transaction_action_progress", "Installing {} ({}/{})"),
+            )
+            for signal_name, message in signal_handlers:
+                handler = report(message)
+                bus.add_signal_receiver(
+                    handler,
+                    signal_name=signal_name,
+                    dbus_interface="org.rpm.dnf.v0.SessionManager",
+                    path=preview.session_path,
+                )
+                receivers.append(handler)
+
+        goal.do_transaction(
+            dbus.Dictionary({"interactive": True}, signature="sv"),
+            timeout=3600,
+        )
+    except TransactionExecutionError:
+        raise
+    except Exception as error:
+        raise TransactionExecutionError(
+            f"DNF5 installation failed: {error}"
+        ) from error
+    finally:
+        if "bus" in locals():
+            for handler in receivers:
+                try:
+                    bus.remove_signal_receiver(
+                        handler,
+                        dbus_interface="org.rpm.dnf.v0.SessionManager",
+                        path=preview.session_path,
+                    )
+                except Exception:
+                    pass
+
+
+def cancel_transaction(preview: TransactionPreview) -> tuple[bool, str]:
+    """Ask DNF5 to cancel an active download phase, if cancellation is still possible."""
+    dbus = _dbus_module()
+    try:
+        _bus, goal = _goal_for_session(dbus, preview.session_path)
+        success, message = goal.cancel()
+        return bool(success), str(message)
+    except Exception as error:
+        raise TransactionExecutionError(
+            f"Could not cancel the DNF5 transaction: {error}"
         ) from error
