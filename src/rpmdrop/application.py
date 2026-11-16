@@ -27,6 +27,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
 
         self._pending_paths: list[str] = []
         self._inspection_active = False
+        self.current_package_path: Path | None = None
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(outer)
@@ -111,6 +112,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         content.append(self.requirements_group)
         self.requirements_row: Adw.ActionRow | None = None
 
+        self.preview_button = Gtk.Button(label="Preview transaction")
+        self.preview_button.add_css_class("suggested-action")
+        self.preview_button.set_halign(Gtk.Align.END)
+        self.preview_button.set_visible(False)
+        self.preview_button.connect("clicked", self._on_preview_clicked)
+        content.append(self.preview_button)
+
         self.description = Gtk.Label()
         self.description.set_xalign(0)
         self.description.set_wrap(True)
@@ -138,6 +146,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.details.set_visible(False)
         self.requirements_group.set_visible(False)
         self.description.set_visible(False)
+        self.preview_button.set_visible(False)
+        self.current_package_path = None
 
     def _add_row(self, title: str, value: str) -> None:
         row = Adw.ActionRow(title=title, subtitle=value)
@@ -235,6 +245,97 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._start_next_inspection()
         return GLib.SOURCE_REMOVE
 
+    def _on_preview_clicked(self, _button: Gtk.Button) -> None:
+        if self.current_package_path is None:
+            return
+        path = self.current_package_path
+        self.preview_button.set_sensitive(False)
+        self.status.set_text("Resolving dependencies with DNF5…")
+        self.spinner.set_visible(True)
+        self.spinner.start()
+        threading.Thread(
+            target=self._resolve_in_background,
+            args=(path,),
+            daemon=True,
+        ).start()
+
+    def _resolve_in_background(self, path: Path) -> None:
+        preview: TransactionPreview | None = None
+        error: str | None = None
+        try:
+            preview = resolve_local_rpm(path)
+        except TransactionResolutionError as resolution_error:
+            error = str(resolution_error)
+        GLib.idle_add(self._preview_finished, preview, error)
+
+    def _preview_finished(
+        self,
+        preview: TransactionPreview | None,
+        error: str | None,
+    ) -> bool:
+        self.spinner.stop()
+        self.spinner.set_visible(False)
+        self.preview_button.set_sensitive(True)
+        if error is not None:
+            self.status.set_text(f"Could not resolve transaction: {error}")
+            return GLib.SOURCE_REMOVE
+        if preview is not None:
+            self._show_transaction_preview(preview)
+        return GLib.SOURCE_REMOVE
+
+    def _show_transaction_preview(self, preview: TransactionPreview) -> None:
+        dialog = Gtk.Dialog(title="Transaction Preview", transient_for=self, modal=True)
+        dialog.set_default_size(560, 440)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        intro = Gtk.Label(
+            label="Review the changes DNF5 resolved. Nothing has been installed."
+        )
+        intro.set_xalign(0)
+        intro.set_wrap(True)
+        content.append(intro)
+
+        lines = []
+        for item in preview.items:
+            nevra = (
+                f"{item.name}-{item.epoch}:{item.version}-{item.release}."
+                f"{item.architecture}"
+            )
+            lines.append(f"{item.action:<12} {nevra}  [{item.reason}]")
+        if preview.warnings:
+            lines.extend(("", "Warnings:"))
+            lines.extend(f"- {warning}" for warning in preview.warnings)
+
+        download_size = sum(item.download_size for item in preview.items)
+        install_size = sum(item.install_size for item in preview.items)
+        lines.extend((
+            "",
+            f"Packages in transaction: {len(preview.items)}",
+            f"Download size (reported): {download_size:,} bytes",
+            f"Installed size (reported): {install_size:,} bytes",
+            "",
+            "Preview only. Installation is not available yet.",
+        ))
+
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_vexpand(True)
+        text_view = Gtk.TextView()
+        text_view.set_editable(False)
+        text_view.set_cursor_visible(False)
+        text_view.set_monospace(True)
+        text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        text_view.get_buffer().set_text("\n".join(lines))
+        scroller.set_child(text_view)
+        content.append(scroller)
+        dialog.connect("response", lambda window, _response: window.destroy())
+        dialog.present()
+
     def _display_package(self, info: PackageInfo) -> None:
         self._clear_details()
         self.package_icon.set_from_icon_name("package-x-generic-symbolic")
@@ -263,6 +364,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.description.set_text(f"{info.summary}\n\n{info.description}")
         self.description.set_visible(True)
         self.drop_area.set_visible(False)
+        self.current_package_path = info.path
+        self.preview_button.set_visible(True)
 
 
 class RpmDropApplication(Adw.Application):
