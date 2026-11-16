@@ -587,5 +587,11 @@ class RpmDropApplication(Adw.Application):
 
 
 def main() -> int:
+    try:
+        from dbus.mainloop.glib import DBusGMainLoop
+
+        DBusGMainLoop(set_as_default=True)
+    except ImportError:
+        pass
     Adw.init()
     return RpmDropApplication().run(sys.argv)
