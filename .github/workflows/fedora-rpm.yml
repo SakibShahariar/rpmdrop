@@ -54,12 +54,12 @@ jobs:
           rpm_file=$(find "$HOME/rpmbuild/RPMS/noarch" -name "rpmdrop-0.1.0-1*.noarch.rpm" -print -quit)
           test -n "$rpm_file"
           rpm -qpl "$rpm_file"
-          rpm -Uvh --nodeps "$rpm_file"
+          dnf install -y "$rpm_file"
           rpm -q rpmdrop
           command -v rpmdrop
           test -f /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
           test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
-          rpm -e rpmdrop
+          dnf remove -y rpmdrop
           ! rpm -q rpmdrop
           test ! -e /usr/bin/rpmdrop
           test ! -e /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
