@@ -2,7 +2,7 @@
 Name=RpmDrop
 Comment=Inspect and install local RPM packages
 Exec=rpmdrop %F
-Icon=package-x-generic
+Icon=io.github.sakibshahariar.RpmDrop
 Terminal=false
 Type=Application
 Categories=System;

@@ -35,3 +35,5 @@ ignore = ["E402"]
 
 [tool.setuptools.data-files]
 "share/applications" = ["data/io.github.sakibshahariar.RpmDrop.desktop"]
+"share/icons/hicolor/512x512/apps" = ["data/icons/io.github.sakibshahariar.RpmDrop.png"]
+"share/icons/hicolor/symbolic/apps" = ["data/icons/io.github.sakibshahariar.RpmDrop-symbolic.svg"]
