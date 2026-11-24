@@ -113,6 +113,8 @@ jobs:
           rpm -q rpmdrop rpmdrop-nautilus
           command -v rpmdrop
           test -f /usr/share/applications/io.github.sakibshahariar.RpmDrop.desktop
+          test -f /usr/share/icons/hicolor/512x512/apps/io.github.sakibshahariar.RpmDrop.png
+          test -f /usr/share/icons/hicolor/symbolic/apps/io.github.sakibshahariar.RpmDrop-symbolic.svg
           test -f /usr/share/nautilus-python/extensions/nautilus-rpmdrop.py
           python3 tests/nautilus_smoke.py
 

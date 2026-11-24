@@ -59,6 +59,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.sakibshahar
 %{_bindir}/rpmdrop
 %doc README.md
 %{_datadir}/applications/io.github.sakibshahariar.RpmDrop.desktop
+%{_datadir}/icons/hicolor/512x512/apps/io.github.sakibshahariar.RpmDrop.png
+%{_datadir}/icons/hicolor/symbolic/apps/io.github.sakibshahariar.RpmDrop-symbolic.svg
 
 %files nautilus
 %{_datadir}/nautilus-python/extensions/nautilus-rpmdrop.py
