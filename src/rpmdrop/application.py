@@ -43,12 +43,14 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.current_package_path: Path | None = None
         self.current_signature: SignatureInfo | None = None
         self._active_preview: TransactionPreview | None = None
-        self._install_dialog: Gtk.Dialog | None = None
-        self._preview_dialog: Gtk.Dialog | None = None
+        self._install_dialog: Adw.AlertDialog | None = None
+        self._preview_dialog: Adw.AlertDialog | None = None
+        self._history_dialog: Adw.AlertDialog | None = None
+        self._result_dialog: Adw.AlertDialog | None = None
+        self._preview_ack: Gtk.CheckButton | None = None
         self._install_status: Gtk.Label | None = None
-        self._install_spinner: Gtk.Spinner | None = None
+        self._install_spinner: Adw.Spinner | None = None
         self._install_progress: Gtk.ProgressBar | None = None
-        self._install_cancel_button: Gtk.Widget | None = None
         self._cancel_confirmed = False
         self.history_store = HistoryStore()
 
@@ -102,7 +104,7 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.status.add_css_class("dim-label")
         titles.append(self.status)
 
-        self.spinner = Gtk.Spinner()
+        self.spinner = Adw.Spinner()
         self.spinner.set_halign(Gtk.Align.START)
         self.spinner.set_visible(False)
         content.append(self.spinner)
@@ -205,23 +207,15 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._rows.append(row)
 
     def _on_history_clicked(self, _button: Gtk.Button) -> None:
-        dialog = Gtk.Dialog(title="RpmDrop History", transient_for=self, modal=True)
-        dialog.set_default_size(600, 440)
-        dialog.set_resizable(True)
-        dialog.add_button("Clear History", Gtk.ResponseType.APPLY)
-        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        content = dialog.get_content_area()
-        content.set_spacing(10)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-
-        intro = Gtk.Label(label="Only transactions started by RpmDrop are listed here.")
-        intro.set_xalign(0)
-        intro.set_wrap(True)
-        intro.add_css_class("dim-label")
-        content.append(intro)
+        dialog = Adw.AlertDialog.new(
+            "RpmDrop History",
+            "Only transactions started by RpmDrop are listed here.",
+        )
+        dialog.set_content_width(600)
+        dialog.set_content_height(440)
+        dialog.add_response("clear", "Clear History")
+        dialog.add_response("close", "Close")
+        dialog.set_close_response("close")
 
         try:
             records = self.history_store.list_recent()
@@ -234,6 +228,10 @@ class RpmDropWindow(Adw.ApplicationWindow):
         scroller = Gtk.ScrolledWindow()
         scroller.set_vexpand(True)
         scroller.set_min_content_height(180)
+        scroller.set_margin_top(12)
+        scroller.set_margin_bottom(12)
+        scroller.set_margin_start(12)
+        scroller.set_margin_end(12)
         if not records:
             empty = Gtk.Label(label=message)
             empty.set_wrap(True)
@@ -259,21 +257,24 @@ class RpmDropWindow(Adw.ApplicationWindow):
                 row.set_subtitle_selectable(True)
                 rows.append(row)
             scroller.set_child(rows)
-        content.append(scroller)
+        dialog.set_extra_child(scroller)
 
+        self._history_dialog = dialog
         dialog.connect("response", self._on_history_response)
-        dialog.present()
+        dialog.present(self)
 
-    def _on_history_response(self, dialog: Gtk.Dialog, response: int) -> None:
-        if response == Gtk.ResponseType.APPLY:
+    def _on_history_response(self, dialog: Adw.AlertDialog, response: str) -> None:
+        self._history_dialog = None
+        if response == "clear":
             try:
                 self.history_store.clear()
             except (OSError, sqlite3.Error) as error:
                 self.status.set_text(f"Could not clear history: {error}")
-            dialog.destroy()
+            # The dialog dismisses itself after emitting the response; open a
+            # fresh one so the cleared list is shown immediately.
             self._on_history_clicked(self.history_button)
             return
-        dialog.destroy()
+        # Any other response ("close") closes the dialog automatically.
 
     def _on_files_dropped(self, _target, value: Gdk.FileList, _x: float, _y: float) -> bool:
         paths = [file.get_path() for file in value.get_files() if file.get_path()]
@@ -321,7 +322,6 @@ class RpmDropWindow(Adw.ApplicationWindow):
     def _start_next_inspection(self) -> None:
         if not self._pending_paths:
             self._inspection_active = False
-            self.spinner.stop()
             self.spinner.set_visible(False)
             self.open_button.set_sensitive(True)
             return
@@ -330,7 +330,6 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._inspection_active = True
         self.open_button.set_sensitive(False)
         self.spinner.set_visible(True)
-        self.spinner.start()
         self.drop_area.set_visible(False)
         self._clear_details()
         self.package_icon.set_from_icon_name("package-x-generic-symbolic")
@@ -381,7 +380,6 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self.open_button.set_sensitive(False)
         self.status.set_text("Resolving dependencies with DNF5…")
         self.spinner.set_visible(True)
-        self.spinner.start()
         threading.Thread(
             target=self._resolve_in_background,
             args=(path,),
@@ -402,7 +400,6 @@ class RpmDropWindow(Adw.ApplicationWindow):
         preview: TransactionPreview | None,
         error: str | None,
     ) -> bool:
-        self.spinner.stop()
         self.spinner.set_visible(False)
         self.preview_button.set_sensitive(True)
         self.open_button.set_sensitive(True)
@@ -415,24 +412,23 @@ class RpmDropWindow(Adw.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _show_transaction_preview(self, preview: TransactionPreview) -> None:
-        dialog = Gtk.Dialog(title="Transaction Preview", transient_for=self, modal=True)
-        dialog.set_default_size(560, 440)
-        dialog.set_resizable(True)
-        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        install_button = dialog.add_button("Install", Gtk.ResponseType.ACCEPT)
-        content = dialog.get_content_area()
-        content.set_spacing(12)
+        dialog = Adw.AlertDialog.new(
+            "Transaction Preview",
+            f"Selected RPM: {preview.package_path.name}\n"
+            "Review the changes DNF5 resolved. Nothing has been installed.",
+        )
+        dialog.set_content_width(560)
+        dialog.set_content_height(440)
+        dialog.add_response("close", "Close")
+        dialog.add_response("install", "Install")
+        dialog.set_close_response("close")
+        dialog.set_default_response("close")
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.set_margin_top(12)
         content.set_margin_bottom(12)
         content.set_margin_start(12)
         content.set_margin_end(12)
-
-        intro = Gtk.Label(
-            label=f"Selected RPM: {preview.package_path.name}\nReview the changes DNF5 resolved. Nothing has been installed."
-        )
-        intro.set_xalign(0)
-        intro.set_wrap(True)
-        content.append(intro)
 
         lines = []
         for item in preview.items:
@@ -534,13 +530,15 @@ class RpmDropWindow(Adw.ApplicationWindow):
         acknowledgement = Gtk.CheckButton(label=acknowledgement_text)
         acknowledgement.set_sensitive(not blocked)
         content.append(acknowledgement)
-        install_button.set_sensitive(False)
+        self._preview_ack = acknowledgement
+        dialog.set_response_enabled("install", False)
         acknowledgement.connect(
             "toggled",
-            lambda check: install_button.set_sensitive(
-                not blocked and check.get_active()
+            lambda check: dialog.set_response_enabled(
+                "install", not blocked and check.get_active()
             ),
         )
+        dialog.set_extra_child(content)
         self._preview_dialog = dialog
         dialog.connect(
             "response",
@@ -549,22 +547,22 @@ class RpmDropWindow(Adw.ApplicationWindow):
             acknowledgement,
             blocked,
         )
-        dialog.present()
+        dialog.present(self)
 
     def _on_preview_response(
         self,
-        dialog: Gtk.Dialog,
-        response: int,
+        dialog: Adw.AlertDialog,
+        response: str,
         preview: TransactionPreview,
         acknowledgement: Gtk.CheckButton,
         blocked: bool,
     ) -> None:
         self._preview_dialog = None
-        if response == Gtk.ResponseType.ACCEPT and not blocked and acknowledgement.get_active():
-            dialog.destroy()
+        self._preview_ack = None
+        proceed = response == "install" and not blocked and acknowledgement.get_active()
+        if proceed:
             self._start_installation(preview)
             return
-        dialog.destroy()
         threading.Thread(
             target=self._close_preview_session_in_background,
             args=(preview,),
@@ -580,20 +578,26 @@ class RpmDropWindow(Adw.ApplicationWindow):
     def _start_installation(self, preview: TransactionPreview) -> None:
         self._active_preview = preview
         self._cancel_confirmed = False
-        dialog = Gtk.Dialog(title="Installing packages", transient_for=self, modal=True)
-        dialog.set_default_size(460, 180)
-        dialog.set_resizable(True)
-        dialog.set_deletable(False)
-        self._install_cancel_button = dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        content = dialog.get_content_area()
-        content.set_spacing(12)
+        dialog = Adw.AlertDialog.new(
+            "Installing packages",
+            "Requesting authorization and preparing installation…",
+        )
+        dialog.set_content_width(460)
+        dialog.set_content_height(180)
+        # Keep the dialog open after Cancel is pressed so the status can show
+        # "Requesting cancellation…"; force_close() dismisses it when finished.
+        dialog.set_can_close(False)
+        dialog.add_response("cancel", "Cancel")
+        dialog.set_close_response("cancel")
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.set_margin_top(20)
         content.set_margin_bottom(20)
         content.set_margin_start(20)
         content.set_margin_end(20)
 
-        self._install_spinner = Gtk.Spinner()
-        self._install_spinner.start()
+        self._install_spinner = Adw.Spinner()
+        self._install_spinner.set_halign(Gtk.Align.CENTER)
         content.append(self._install_spinner)
         self._install_status = Gtk.Label(label="Requesting authorization and preparing installation…")
         self._install_status.set_wrap(True)
@@ -602,11 +606,12 @@ class RpmDropWindow(Adw.ApplicationWindow):
         self._install_progress = Gtk.ProgressBar()
         self._install_progress.set_show_text(True)
         content.append(self._install_progress)
+        dialog.set_extra_child(content)
         dialog.connect("response", self._on_install_cancel)
         self._install_dialog = dialog
         self.open_button.set_sensitive(False)
         self.preview_button.set_sensitive(False)
-        dialog.present()
+        dialog.present(self)
 
         threading.Thread(
             target=self._install_in_background,
@@ -640,11 +645,16 @@ class RpmDropWindow(Adw.ApplicationWindow):
             self._install_progress.set_text(f"{fraction:.0%}")
         return GLib.SOURCE_REMOVE
 
-    def _on_install_cancel(self, _dialog: Gtk.Dialog, response: int) -> None:
-        if response != Gtk.ResponseType.CANCEL or self._active_preview is None:
+    def _enable_install_cancel(self) -> bool:
+        if self._install_dialog is not None:
+            self._install_dialog.set_response_enabled("cancel", True)
+        return GLib.SOURCE_REMOVE
+
+    def _on_install_cancel(self, _dialog: Adw.AlertDialog, response: str) -> None:
+        if response != "cancel" or self._active_preview is None:
             return
-        if self._install_cancel_button is not None:
-            self._install_cancel_button.set_sensitive(False)
+        if self._install_dialog is not None:
+            self._install_dialog.set_response_enabled("cancel", False)
         self._set_install_status("Requesting cancellation. DNF5 can cancel during download; the RPM transaction itself may not be cancellable.")
         threading.Thread(
             target=self._cancel_install_in_background,
@@ -664,8 +674,8 @@ class RpmDropWindow(Adw.ApplicationWindow):
         except TransactionExecutionError as error:
             status = str(error)
         GLib.idle_add(self._set_install_status, status)
-        if self._install_cancel_button is not None and "could not cancel" in status.lower():
-            GLib.idle_add(self._install_cancel_button.set_sensitive, True)
+        if "could not cancel" in status.lower():
+            GLib.idle_add(self._enable_install_cancel)
 
     def _installation_finished(self, error: str | None) -> bool:
         preview = self._active_preview
@@ -689,16 +699,16 @@ class RpmDropWindow(Adw.ApplicationWindow):
             except (OSError, sqlite3.Error, ValueError) as save_error:
                 history_error = str(save_error)
 
-        if self._install_spinner is not None:
-            self._install_spinner.stop()
-        if self._install_dialog is not None:
-            self._install_dialog.destroy()
+        install_dialog = self._install_dialog
         self._install_dialog = None
         self._install_status = None
         self._install_spinner = None
         self._install_progress = None
-        self._install_cancel_button = None
+        # Clear these first: force_close() re-emits the close response
+        # synchronously, and the cancel handler must become a no-op.
         self._active_preview = None
+        if install_dialog is not None:
+            install_dialog.force_close()
         self.open_button.set_sensitive(True)
         self.preview_button.set_sensitive(True)
         if error is None:
@@ -726,12 +736,13 @@ class RpmDropWindow(Adw.ApplicationWindow):
         return GLib.SOURCE_REMOVE
 
     def _show_install_result(self, title: str, message: str, is_error: bool) -> None:
-        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
-        dialog.set_default_size(560, 360)
-        dialog.set_resizable(True)
-        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        content = dialog.get_content_area()
-        content.set_spacing(12)
+        dialog = Adw.AlertDialog.new(title, None)
+        dialog.set_content_width(560)
+        dialog.set_content_height(360)
+        dialog.add_response("close", "Close")
+        dialog.set_close_response("close")
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.set_margin_top(20)
         content.set_margin_bottom(20)
         content.set_margin_start(20)
@@ -751,8 +762,9 @@ class RpmDropWindow(Adw.ApplicationWindow):
         label.set_selectable(True)
         scroller.set_child(label)
         content.append(scroller)
-        dialog.connect("response", lambda window, _response: window.destroy())
-        dialog.present()
+        dialog.set_extra_child(content)
+        self._result_dialog = dialog
+        dialog.present(self)
 
     def _display_package(self, info: PackageInfo) -> None:
         self._clear_details()

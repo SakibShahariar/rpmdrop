@@ -1,5 +1,6 @@
 """Headless GTK smoke test for package details and transaction confirmation."""
 
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,21 @@ from rpmdrop.application import RpmDropApplication, RpmDropWindow
 from rpmdrop.application import main as application_main
 from rpmdrop.dnf5 import TransactionItem, TransactionPreview
 from rpmdrop.package import PackageInfo, SignatureInfo
+
+
+def pump_until(predicate, timeout: float = 5.0) -> bool:
+    """Run the main loop until predicate() holds or timeout expires.
+
+    Adw.Dialog closes with an animation, so the widget is detached from its
+    root asynchronously; a single non-blocking iteration is not enough.
+    """
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            return False
+        GLib.MainContext.default().iteration(False)
+        time.sleep(0.01)
+    return True
 
 
 def main() -> None:
@@ -100,76 +116,59 @@ def main() -> None:
         window._on_history_clicked(window.history_button)
     while GLib.MainContext.default().iteration(False):
         pass
-    toplevels = Gtk.Window.get_toplevels()
-    history_dialog = next(
-        (
-            toplevels.get_item(index)
-            for index in range(toplevels.get_n_items())
-            if toplevels.get_item(index).get_title() == "RpmDrop History"
-        ),
-        None,
-    )
-    assert history_dialog is not None
-    assert history_dialog.get_resizable()
-    assert history_dialog.get_modal()
-    assert history_dialog.get_transient_for() is window
-    history_dialog.destroy()
+    history_dialog = window._history_dialog
+    assert isinstance(history_dialog, Adw.AlertDialog)
+    assert history_dialog.get_root() is window
+    history_dialog.close()
+    assert pump_until(lambda: history_dialog.get_root() is None)
 
     with patch("rpmdrop.application.threading.Thread") as thread:
         window._start_installation(preview)
         thread.assert_called_once()
     install_dialog = window._install_dialog
-    assert install_dialog is not None
-    assert install_dialog.get_resizable()
-    assert install_dialog.get_modal()
-    assert install_dialog.get_transient_for() is window
-    assert not install_dialog.get_deletable()
-    install_dialog.destroy()
+    assert isinstance(install_dialog, Adw.AlertDialog)
+    assert install_dialog.get_root() is window
+    assert not install_dialog.get_can_close()
+    assert install_dialog.get_response_enabled("cancel")
+    assert isinstance(window._install_spinner, Adw.Spinner)
+    # Detach first: force_close() re-emits the "cancel" response, and the
+    # cancel handler must not run against a detached dialog.
     window._install_dialog = None
+    window._active_preview = None
+    install_dialog.force_close()
+    assert pump_until(lambda: install_dialog.get_root() is None)
     window._install_status = None
     window._install_spinner = None
     window._install_progress = None
-    window._install_cancel_button = None
-    window._active_preview = None
     window.open_button.set_sensitive(True)
     window.preview_button.set_sensitive(True)
 
     window._show_install_result("Test result", "Result details. " * 200, False)
     while GLib.MainContext.default().iteration(False):
         pass
-    toplevels = Gtk.Window.get_toplevels()
-    result_dialog = next(
-        (
-            toplevels.get_item(index)
-            for index in range(toplevels.get_n_items())
-            if toplevels.get_item(index).get_title() == "Test result"
-        ),
-        None,
-    )
-    assert result_dialog is not None
-    assert result_dialog.get_resizable()
-    assert result_dialog.get_modal()
-    assert result_dialog.get_transient_for() is window
-    result_dialog.destroy()
+    result_dialog = window._result_dialog
+    assert isinstance(result_dialog, Adw.AlertDialog)
+    assert result_dialog.get_root() is window
+    result_dialog.close()
+    assert pump_until(lambda: result_dialog.get_root() is None)
 
     window._show_transaction_preview(preview)
     print("gtk-smoke: transaction preview constructed", flush=True)
     while GLib.MainContext.default().iteration(False):
         pass
     dialog = window._preview_dialog
-    assert dialog is not None
-    assert dialog.get_resizable()
-    assert dialog.get_modal()
-    assert dialog.get_transient_for() is window
-    install_button = dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
-    acknowledgement = dialog.get_content_area().get_last_child()
+    assert isinstance(dialog, Adw.AlertDialog)
+    assert dialog.get_root() is window
+    acknowledgement = window._preview_ack
     assert isinstance(acknowledgement, Gtk.CheckButton)
-    assert not install_button.get_sensitive()
+    assert not dialog.get_response_enabled("install")
     assert "packages will be removed" in acknowledgement.get_label()
     acknowledgement.set_active(True)
-    assert install_button.get_sensitive()
-    dialog.destroy()
+    assert dialog.get_response_enabled("install")
+    dialog.close()
+    assert pump_until(lambda: dialog.get_root() is None)
     window._preview_dialog = None
+    window._preview_ack = None
 
     window.current_signature = SignatureInfo(
         "digest-failed", "Digest failed", "Do not install.", ""
@@ -179,15 +178,15 @@ def main() -> None:
     while GLib.MainContext.default().iteration(False):
         pass
     blocked_dialog = window._preview_dialog
-    assert blocked_dialog is not None
-    assert blocked_dialog.get_resizable()
-    assert blocked_dialog.get_modal()
-    assert blocked_dialog.get_transient_for() is window
-    blocked_install = blocked_dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
-    blocked_acknowledgement = blocked_dialog.get_content_area().get_last_child()
-    assert not blocked_install.get_sensitive()
+    assert isinstance(blocked_dialog, Adw.AlertDialog)
+    assert blocked_dialog.get_root() is window
+    blocked_acknowledgement = window._preview_ack
+    assert not blocked_dialog.get_response_enabled("install")
     assert not blocked_acknowledgement.get_sensitive()
-    blocked_dialog.destroy()
+    blocked_dialog.close()
+    assert pump_until(lambda: blocked_dialog.get_root() is None)
+    window._preview_dialog = None
+    window._preview_ack = None
 
     window.destroy()
     application.quit()
